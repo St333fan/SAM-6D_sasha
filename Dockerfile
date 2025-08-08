@@ -121,5 +121,6 @@ WORKDIR /code
 ENV PYTHONPATH=/code/Pose_Estimation_Model:${PYTHONPATH}
 
 # Default command (interactive shell); override with `docker run ... python train.py ...`
-CMD ["/bin/bash", "-c", "source /opt/ros/noetic/setup.bash && source /root/catkin_ws/devel/setup.bash && \
-    python cnos_ros_wrapper.py dataset_name=ycbv model=cnos_fast model.onboarding_config.rendering_type=pyrender"]
+CMD ["/bin/bash", "-c", "source /opt/ros/noetic/setup.bash && source /root/catkin_ws/devel/setup.bash"] 
+    #&& \
+    #python cnos_ros_wrapper.py dataset_name=ycbv model=cnos_fast model.onboarding_config.rendering_type=pyrender"]
