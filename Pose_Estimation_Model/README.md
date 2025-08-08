@@ -1,58 +1,136 @@
-# Pose Estimation Model (PEM) for SAM-6D 
-
-
-
-![image](https://github.com/JiehongLin/SAM-6D/blob/main/pics/overview_pem.png)
-
-## Requirements
-The code has been tested with
-- python 3.9.6
-- pytorch 2.0.0
-- CUDA 11.3
-
-Other dependencies:
-
-```
-sh dependencies.sh
-```
-
-## Data Preparation
-
-Please refer to [[link](https://github.com/JiehongLin/SAM-6D/tree/main/SAM-6D/Data)] for more details.
-
-
-## Model Download
-Our trained model is provided [[here](https://drive.google.com/file/d/1joW9IvwsaRJYxoUmGo68dBVg-HcFNyI7/view?usp=sharing)], and could be downloaded via the command:
-```
+# ROS-FoundationPose
+## Setup Data
+Download PEM pretrained model
+```bash
+cd Pose_Estimation_Model
+pip install gdown
 python download_sam6d-pem.py
 ```
 
-## Training on MegaPose Training Set
 
-To train the Pose Estimation Model of SAM-6D, please prepare the training data and run the folowing command:
+## Build Image
+### New gen RTX40 Series and up compatible
+```bash
+docker build --network host -t sam6d_ros .
+bash docker/run_container_ros.sh
 ```
-python train.py --gpus 0,1,2,3 --model pose_estimation_model --config config/base.yaml
+If it's the first time you launch the container, you need to build extensions. Run this command *inside* the Docker container.
+```bash
+cd Pose_Estimation_Model/model/pointnet2 
+python setup.py install
+
 ```
-By default, we use four GPUs of 3090ti to train the model with batchsize set as 28.
-
-
-## Evaluation on BOP Datasets
-
-To evaluate the model on BOP datasets, please run the following command:
+Later you can execute into the container without re-build.
+```bash
+docker exec -it sam6d_ros bash
+source /opt/ros/noetic/setup.bash
+source /root/catkin_ws/devel/setup.bash
 ```
-python test_bop.py --gpus 0 --model pose_estimation_model --config config/base.yaml --dataset $DATASET --view 42
-```
-The string "DATASET" could be set as `lmo`, `icbin`, `itodd`, `hb`, `tless`, `tudl`, `ycbv`, or `all`. Before evaluation, please refer to [[link](https://github.com/JiehongLin/SAM-6D/tree/main/SAM-6D/Data)] for rendering the object templates of BOP datasets, or download our [rendered templates](https://drive.google.com/drive/folders/1fXt5Z6YDPZTJICZcywBUhu5rWnPvYAPI?usp=drive_link). Besides, the instance segmentation should be done following [[link](https://github.com/JiehongLin/SAM-6D/tree/main/SAM-6D/Instance_Segmentation_Model)]; to test on your own segmentation results, you could change the "detection_paths" in the `test_bop.py` file.
+Test installation
+```bash
+# before running download weights and demo data!
 
-One could also download our trained model for evaluation:
+# set the paths
+export CAD_PATH=Data/Example/obj_000005.ply    # path to a given cad model(mm)
+export RGB_PATH=Data/Example/rgb.png           # path to a given RGB image
+export DEPTH_PATH=Data/Example/depth.png       # path to a given depth map(mm)
+export CAMERA_PATH=Data/Example/camera.json    # path to given camera intrinsics
+export OUTPUT_DIR=Data/Example/outputs         # path to a pre-defined file for saving results
+
+# run inference
+cd SAM-6D
+sh demo.sh
 ```
-python test_bop.py --gpus 0 --model pose_estimation_model --config config/base.yaml --checkpoint_path checkpoints/sam-6d-pem-base.pth --dataset $DATASET --view 42
+
+### < RTX40 Series
+go to original README, change back the commit e3d597b8c6b851d053094ebd6fa240191c5238f8, rewrite the Dockerfile to the right cuda version, use docker/dockerfile as template, all this is not recommended because it was not tested with ROS implementation
+
+## ROS start
+ROS integration was only tested with Sasha + GraspingPipeline + DOPE setup docker-compose, check this git out:
+https://github.com/St333fan/DOPE
+
+# Original README -> <p align="center"> <font color=#008000>SAM-6D</font>: Segment Anything Model Meets Zero-Shot 6D Object Pose Estimation </p>
+
+####  <p align="center"> [Jiehong Lin](https://jiehonglin.github.io/), [Lihua Liu](https://github.com/foollh), [Dekun Lu](https://github.com/WuTanKun), [Kui Jia](http://kuijia.site/)</p>
+#### <p align="center">CVPR 2024 </p>
+#### <p align="center">[[Paper]](https://arxiv.org/abs/2311.15707) </p>
+
+<p align="center">
+  <img width="100%" src="https://github.com/JiehongLin/SAM-6D/blob/main/pics/vis.gif"/>
+</p>
+
+
+## News
+- [2024/03/07] We publish an updated version of our paper on [ArXiv](https://arxiv.org/abs/2311.15707).
+- [2024/02/29] Our paper is accepted by CVPR2024!
+
+
+## Update Log
+- [2024/03/05] We update the demo to support [FastSAM](https://github.com/CASIA-IVA-Lab/FastSAM), you can do this by specifying `SEGMENTOR_MODEL=fastsam` in demo.sh.
+- [2024/03/03] We upload a [docker image](https://hub.docker.com/r/lihualiu/sam-6d/tags) for running custom data.
+- [2024/03/01] We update the released [model](https://drive.google.com/file/d/1joW9IvwsaRJYxoUmGo68dBVg-HcFNyI7/view?usp=sharing) of PEM. For the new model, a larger batchsize of 32 is set, while that of the old is 12. 
+
+## Overview
+In this work, we employ Segment Anything Model as an advanced starting point for **zero-shot 6D object pose estimation** from RGB-D images, and propose a novel framework, named **SAM-6D**, which utilizes the following two dedicated sub-networks to realize the focused task:
+- [x] [Instance Segmentation Model](https://github.com/JiehongLin/SAM-6D/tree/main/SAM-6D/Instance_Segmentation_Model)
+- [x] [Pose Estimation Model](https://github.com/JiehongLin/SAM-6D/tree/main/SAM-6D/Pose_Estimation_Model)
+
+
+<p align="center">
+  <img width="50%" src="https://github.com/JiehongLin/SAM-6D/blob/main/pics/overview_sam_6d.png"/>
+</p>
+
+
+## Getting Started
+
+### 1. Preparation
+Please clone the repository locally:
+```
+git clone https://github.com/JiehongLin/SAM-6D.git
+```
+Install the environment and download the model checkpoints:
+```
+cd SAM-6D
+sh prepare.sh
+```
+We also provide a [docker image](https://hub.docker.com/r/lihualiu/sam-6d/tags) for convenience.
+
+### 2. Evaluation on the custom data
+```
+# set the paths
+export CAD_PATH=Data/Example/obj_000005.ply    # path to a given cad model(mm)
+export RGB_PATH=Data/Example/rgb.png           # path to a given RGB image
+export DEPTH_PATH=Data/Example/depth.png       # path to a given depth map(mm)
+export CAMERA_PATH=Data/Example/camera.json    # path to given camera intrinsics
+export OUTPUT_DIR=Data/Example/outputs         # path to a pre-defined file for saving results
+
+# run inference
+cd SAM-6D
+sh demo.sh
 ```
 
 
-## Acknowledgements
-- [MegaPose](https://github.com/megapose6d/megapose6d)
-- [GDRNPP](https://github.com/shanice-l/gdrnpp_bop2022)
-- [GeoTransformer](https://github.com/qinzheng93/GeoTransformer)
-- [Flatten Transformer](https://github.com/LeapLabTHU/FLatten-Transformer)
+
+## Citation
+If you find our work useful in your research, please consider citing:
+
+    @article{lin2023sam,
+    title={SAM-6D: Segment Anything Model Meets Zero-Shot 6D Object Pose Estimation},
+    author={Lin, Jiehong and Liu, Lihua and Lu, Dekun and Jia, Kui},
+    journal={arXiv preprint arXiv:2311.15707},
+    year={2023}
+    }
+
+
+## Contact
+
+If you have any questions, please feel free to contact the authors. 
+
+Jiehong Lin: [mortimer.jh.lin@gmail.com](mailto:mortimer.jh.lin@gmail.com)
+
+Lihua Liu: [lihualiu.scut@gmail.com](mailto:lihualiu.scut@gmail.com)
+
+Dekun Lu: [derkunlu@gmail.com](mailto:derkunlu@gmail.com)
+
+Kui Jia:  [kuijia@gmail.com](kuijia@gmail.com)
 
