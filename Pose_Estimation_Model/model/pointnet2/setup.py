@@ -20,7 +20,8 @@ setup(
         CUDAExtension(
             name='pointnet2._ext',
             sources=_ext_sources,
-            include_dirs = [os.path.join(_ext_src_root, "include")],
+            # include_dirs = [os.path.join(_ext_src_root, "include")], # path problem
+            include_dirs = [os.path.abspath(os.path.join(_ext_src_root, "include"))],
             extra_compile_args={
                 # "cxx": ["-O2", "-I{}".format("{}/include".format(_ext_src_root))],
                 # "nvcc": ["-O2", "-I{}".format("{}/include".format(_ext_src_root))],

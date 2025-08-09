@@ -1,5 +1,5 @@
 # Base image with matching Python (3.9) + CUDA 11.7 + development tools for compiling CUDA extensions
-FROM pytorch/pytorch:2.0.0-cuda11.7-cudnn8-devel
+FROM nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
 
 # Avoid interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -24,7 +24,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip tooling
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+# Install Python pip and upgrade tooling
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-pip \
+ && rm -rf /var/lib/apt/lists/* \
+ && python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # Install PyTorch (explicit versions as in environment.yaml) from official CUDA 11.7 wheels
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu117 \
@@ -115,12 +119,19 @@ RUN /bin/bash -c 'cd /root/catkin_ws/src; \
                   git clone https://gitlab.informatik.uni-bremen.de/robokudo/robokudo_msgs.git'
 RUN /bin/bash -c '. /opt/ros/noetic/setup.bash; cd /root/catkin_ws; catkin build -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5'
 
-RUN python3 -m pip install \
-    catkin_pkg \
-    rospkg
+#RUN python3 -m pip install \
+#    catkin_pkg \
+#    rospkg
 
-RUN python3 -m pip install \
-    git+https://github.com/qboticslabs/ros_numpy.git
+# Install ros_numpy via apt instead of pip
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ros-noetic-ros-numpy \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
+
+#RUN python3 -m pip install \
+#    git+https://github.com/qboticslabs/ros_numpy.git
 
 # Install mesa-utils for OpenGL support
 RUN apt-get update \
