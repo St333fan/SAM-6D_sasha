@@ -1,6 +1,27 @@
 # ROS-FoundationPose
 To run 16GB VRAM GPU, in Pose_Estimation_Model/config/base.yaml;   n_sample_model_point: 256 # Reduced from 1024 was set
 
+## Build Image (tested on RTX 4060TI)
+```bash
+git clone git@github.com:St333fan/SAM-6D-sasha.git
+cd SAM-6D-sasha
+docker build --network host -t sam6d_ros .
+bash docker/run_container_ros.sh
+```
+If it's the first time you launch the container, you need to build/install pointnet2. Run this command *inside* the Docker container, every time at startup.
+```bash
+### Compile pointnet2 every time at docker container start
+cd Pose_Estimation_Model/model/pointnet2
+python3 -m pip install --upgrade "setuptools>=68" "importlib-metadata>=6
+python3 -m pip install .
+```
+A running Docker container can be accessed by
+```bash
+docker exec -it sam6d_ros bash
+source /opt/ros/noetic/setup.bash
+source /root/catkin_ws/devel/setup.bash
+```
+
 ## Setup Data
 Download models once in Docker, they will be saved locally
 ```bash
@@ -16,41 +37,17 @@ cd Pose_Estimation_Model
 python3 download_sam6d-pem.py
 cd ../
 ```
+## Test Installation
 Download test data, without the need for rendering with Blenderporc. Download lmo and put all files from obj_000005 under templates
 Downloadable rendered templates [[link](https://drive.google.com/drive/folders/1fXt5Z6YDPZTJICZcywBUhu5rWnPvYAPI?usp=sharing)].
 ```bash
-
 Data
 └── Example
     └── outputs
         ├── sam6d_results
         └── templates
 ```
-
-## Build Image
-### New gen RTX40 Series and up compatible
 ```bash
-docker build --network host -t sam6d_ros .
-bash docker/run_container_ros.sh
-```
-If it's the first time you launch the container, you need to build extensions. Run this command *inside* the Docker container.
-```bash
-### Compile pointnet2 every time at docker container start
-cd Pose_Estimation_Model/model/pointnet2
-python3 -m pip install --upgrade "setuptools>=68" "importlib-metadata>=6
-python3 -m pip install .
-```
-
-Later you can execute into the container without re-build.
-```bash
-docker exec -it sam6d_ros bash
-source /opt/ros/noetic/setup.bash
-source /root/catkin_ws/devel/setup.bash
-```
-Test installation
-```bash
-# before running download weights and demo data!
-
 # set the paths for test
 export CAD_PATH=/home/stefan/Projects/SAM-6D-sasha/Data/Example/obj_000005.ply    # path to a given cad model(mm)
 export RGB_PATH=/home/stefan/Projects/SAM-6D-sasha/Data/Example/rgb.png           # path to a given RGB image
@@ -65,9 +62,6 @@ sh demo.sh
 # results under
 Data/Example/outputs/sam6d_results
 ```
-
-### < RTX40 Series
-no support
 
 ## ROS start
 ROS integration was only tested with Sasha + GraspingPipeline + DOPE setup docker-compose, check this git out:
