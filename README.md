@@ -12,7 +12,7 @@ If it's the first time you launch the container, you need to build/install point
 ```bash
 ### Compile pointnet2 every time at docker container start
 cd Pose_Estimation_Model/model/pointnet2
-python3 -m pip install --upgrade "setuptools>=68" "importlib-metadata>=6
+python3 -m pip install --upgrade "setuptools>=68" "importlib-metadata>=6"
 python3 -m pip install .
 ```
 A running Docker container can be accessed by
