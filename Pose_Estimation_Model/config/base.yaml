@@ -82,18 +82,17 @@ test_dataset:
   data_dir: ../Data/BOP
   template_dir: ../Data/BOP-Templates
   img_size: 224
-  n_sample_observed_point: 2048
-  n_sample_model_point: 1024
-  n_sample_template_point: 5000
+  n_sample_observed_point: 2048    # Reduced from 2048
+  n_sample_model_point: 256        # Reduced from 1024
+  n_sample_template_point: 2500    # Reduced from 5000
   minimum_n_point: 8
   rgb_mask_flag: True
   seg_filter_score: 0.25
-  n_template_view: 42
-
+  n_template_view: 42              # Reduced from 42
 
 test_dataloader:
-  bs            : 16
-  num_workers   : 16
+  bs            : 16                # Reduced from 16
+  num_workers   : 16                # Reduced from 16
   shuffle       : False
   drop_last     : False
   pin_memory    : False

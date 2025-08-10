@@ -67,3 +67,13 @@ Thumbs.db
 
 # Conda
 .conda/
+
+# Templates and generated data
+#templates/
+#**/templates/
+Data/Example/outputs/
+
+# models 
+Instance_Segmentation_Model/checkpoints/
+Instance_Segmentation_Model/data/
+Instance_Segmentation_Model/log/
