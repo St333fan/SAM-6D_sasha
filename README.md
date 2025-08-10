@@ -1,7 +1,9 @@
 # ROS-FoundationPose
-To run 16GB VRAM GPU, in Pose_Estimation_Model/config/base.yaml;   n_sample_model_point: 256 # Reduced from 1024 was set
+Tested on RTX 4060TI 16GB VRAM GPU; IF VRAM is problem:
+1. Run fastsam not sam
+2. Increase in Pose_Estimation_Model/run_inference_custom.py --det_score_thresh", default=0.4 
 
-## Build Image (tested on RTX 4060TI)
+## Build Image
 ```bash
 git clone git@github.com:St333fan/SAM-6D-sasha.git
 cd SAM-6D-sasha
