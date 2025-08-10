@@ -1,4 +1,79 @@
-# <p align="center"> <font color=#008000>SAM-6D</font>: Segment Anything Model Meets Zero-Shot 6D Object Pose Estimation </p>
+# ROS-FoundationPose
+To run 16GB VRAM GPU, in Pose_Estimation_Model/config/base.yaml;   n_sample_model_point: 256 # Reduced from 1024 was set
+
+## Setup Data
+Download models once in Docker, they will be saved locally
+```bash
+### Download ISM pretrained model
+cd Instance_Segmentation_Model
+# python3 download_sam.py
+python3 download_fastsam.py
+python3 download_dinov2.py
+cd ../
+
+### Download PEM pretrained model
+cd Pose_Estimation_Model
+python3 download_sam6d-pem.py
+cd ../
+```
+Download test data, without the need for rendering with Blenderporc. Download lmo and put all files from obj_000005 under templates
+Downloadable rendered templates [[link](https://drive.google.com/drive/folders/1fXt5Z6YDPZTJICZcywBUhu5rWnPvYAPI?usp=sharing)].
+```bash
+
+Data
+└── Example
+    └── outputs
+        ├── sam6d_results
+        └── templates
+```
+
+## Build Image
+### New gen RTX40 Series and up compatible
+```bash
+docker build --network host -t sam6d_ros .
+bash docker/run_container_ros.sh
+```
+If it's the first time you launch the container, you need to build extensions. Run this command *inside* the Docker container.
+```bash
+### Compile pointnet2 every time at docker container start
+cd Pose_Estimation_Model/model/pointnet2
+python3 -m pip install --upgrade "setuptools>=68" "importlib-metadata>=6
+python3 -m pip install .
+```
+
+Later you can execute into the container without re-build.
+```bash
+docker exec -it sam6d_ros bash
+source /opt/ros/noetic/setup.bash
+source /root/catkin_ws/devel/setup.bash
+```
+Test installation
+```bash
+# before running download weights and demo data!
+
+# set the paths for test
+export CAD_PATH=/home/stefan/Projects/SAM-6D-sasha/Data/Example/obj_000005.ply    # path to a given cad model(mm)
+export RGB_PATH=/home/stefan/Projects/SAM-6D-sasha/Data/Example/rgb.png           # path to a given RGB image
+export DEPTH_PATH=/home/stefan/Projects/SAM-6D-sasha/Data/Example/depth.png       # path to a given depth map(mm)
+export CAMERA_PATH=/home/stefan/Projects/SAM-6D-sasha/Data/Example/camera.json    # path to given camera intrinsics
+export OUTPUT_DIR=/home/stefan/Projects/SAM-6D-sasha/Data/Example/outputs  
+
+# run inference
+cd SAM-6D
+sh demo.sh
+
+# results under
+Data/Example/outputs/sam6d_results
+```
+
+### < RTX40 Series
+no support
+
+## ROS start
+ROS integration was only tested with Sasha + GraspingPipeline + DOPE setup docker-compose, check this git out:
+https://github.com/St333fan/DOPE
+
+# Original README -> <p align="center"> <font color=#008000>SAM-6D</font>: Segment Anything Model Meets Zero-Shot 6D Object Pose Estimation </p>
 
 ####  <p align="center"> [Jiehong Lin](https://jiehonglin.github.io/), [Lihua Liu](https://github.com/foollh), [Dekun Lu](https://github.com/WuTanKun), [Kui Jia](http://kuijia.site/)</p>
 #### <p align="center">CVPR 2024 </p>
