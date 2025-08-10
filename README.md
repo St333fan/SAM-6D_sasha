@@ -53,7 +53,7 @@ export CAD_PATH=/home/stefan/Projects/SAM-6D-sasha/Data/Example/obj_000005.ply  
 export RGB_PATH=/home/stefan/Projects/SAM-6D-sasha/Data/Example/rgb.png           # path to a given RGB image
 export DEPTH_PATH=/home/stefan/Projects/SAM-6D-sasha/Data/Example/depth.png       # path to a given depth map(mm)
 export CAMERA_PATH=/home/stefan/Projects/SAM-6D-sasha/Data/Example/camera.json    # path to given camera intrinsics
-export OUTPUT_DIR=/home/stefan/Projects/SAM-6D-sasha/Data/Example/outputs  
+export OUTPUT_DIR=/home/stefan/Projects/SAM-6D-sasha/Data/Example/outputs         # path to outputs folder
 
 # run inference
 cd SAM-6D
