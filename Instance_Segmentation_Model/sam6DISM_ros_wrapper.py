@@ -66,7 +66,7 @@ class SAM6DISM_ROS:
         self.mesh_files = config.get('mesh_files', {})
         
         # Setup paths for models and templates
-        self.models_dir = "/code/datasets/ycbv/models"
+        self.models_dir = "/code/datasets/ycbv/models"  # is not needed??
         self.templates_dir = "/code/datasets/ycbv/templates/obj_000001" #test with one object
 
         # Setup logging
@@ -186,7 +186,7 @@ class SAM6DISM_ROS:
         batch['depth_scale'] = torch.from_numpy(depth_scale).unsqueeze(0).to(self.device)
         return batch
 
-    def _run_sam6d_inference(self, rgb_image, depth_image=None, cad_path=None):
+    def _run_sam6d_inference(self, rgb_image, depth_image=None, cad_path=None, object_name=None):
         """Run complete SAM-6D ISM inference pipeline"""
         # Convert PIL image to numpy if needed
         if isinstance(rgb_image, Image.Image):
@@ -256,8 +256,12 @@ class SAM6DISM_ROS:
              
         detections.to_numpy()
         
-        # Save results as JSON only (no images as requested)
-        save_path = f"{self.output_dir}"
+        # Save results as JSON with object-specific naming
+        if object_name:
+            save_filename = object_name
+        else:
+            save_filename = "sam6d_ism"
+        save_path = f"{self.output_dir}/{save_filename}"
         detections.save_to_file(0, 0, 0, save_path, "Custom", return_results=False)
         detections_json = convert_npz_to_json(idx=0, list_npz_paths=[save_path+".npz"])
         save_json_bop23(save_path+".json", detections_json)
@@ -286,8 +290,13 @@ class SAM6DISM_ROS:
         
         # For demonstration, we'll use the first available CAD file
         cad_path = None
+        object_name = None
         if self.mesh_files:
+            # Get the first object name and its CAD path
+            first_object_name = list(self.object_name_mapping.keys())[0]
+            object_name = first_object_name
             cad_path = list(self.mesh_files.values())[0]
+            print(f"Using object: {object_name} with CAD: {cad_path}")
         
         # Run SAM-6D ISM inference
         try:
@@ -295,6 +304,7 @@ class SAM6DISM_ROS:
                 rgb_image, 
                 depth_image=depth_image, 
                 cad_path=cad_path,
+                object_name=object_name
             )
             
             if detections_result is None or len(detections_result) == 0:
@@ -349,23 +359,30 @@ class SAM6DISM_ROS:
             
             print(f"Detection Scores: {scores}")
             
-            # Sort arrays based on scores (highest first)
-            order = np.argsort(scores)[::-1]
-            category_id = category_id[order]
-            scores = scores[order]
-            masks = masks[order]
+            # Find the index of the highest scoring detection
+            best_idx = np.argmax(scores)
             
-            # Create label image
-            label_image = np.full_like(masks[0], -1, dtype=np.int16)
-            for i, score in enumerate(scores):
-                label_image[masks[i] > 0] = i
+            # Keep only the best detection
+            best_category_id = category_id[best_idx]
+            best_score = scores[best_idx]
+            best_mask = masks[best_idx]
             
-            # Create response
+            # Create label image with only the best detection
+            label_image = np.full_like(best_mask, -1, dtype=np.int16)
+            label_image[best_mask > 0] = 0  # Label the best detection as 0
+            
+            # Create response with only the best detection
             result = GenericImgProcAnnotatorResult()
             result.success = True
-            result.class_confidences = scores
+            result.class_confidences = [best_score]
             result.image = ros_numpy.msgify(ROSImage, label_image, encoding='16SC1')
-            result.class_names = [f"object_{cat_id}" for cat_id in category_id]
+            
+            # Use the actual object name instead of generic naming
+            if object_name:
+                result.class_names = [object_name]
+            else:
+                # Fallback to generic naming if object name is not available
+                result.class_names = [f"object_{best_category_id}"]
             
             print("\nDetected Objects:")
             print(result.class_names)
@@ -388,10 +405,10 @@ class SAM6DISM_ROS:
 def parse_opt():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_file', 
-                       default="../configs/cfg_ros_ycbv_inference.json",
+                       default="/code/configs/cfg_ros_ycbv_inference.json",
                        help='Path to configuration file')
     parser.add_argument('--output_dir',
-                       default="/code/tmp/sam6d_ism",
+                       default="/code/tmp",
                        help='Directory to save ISM results')
     opt = parser.parse_args()
     return opt
