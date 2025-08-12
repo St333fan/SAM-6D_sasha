@@ -54,6 +54,7 @@ class SAM6DISM_ROS:
         self.segmentor_model = config.get("segmentor_model", "fastsam")
         self.stability_score_thresh = config.get("stability_score_thresh", 0.97)
         self.depth_scale = config.get("depth_scale", 1000.0)
+        self.confidence_threshold = config.get("confidence_threshold", 0.55)  # Add confidence threshold
         
         print(f"Using intrinsics: {self.intrinsics}")
         print(f"Output directory: {self.output_dir}")
@@ -65,9 +66,29 @@ class SAM6DISM_ROS:
         # Store mesh information for each object
         self.mesh_files = config.get('mesh_files', {})
         
-        # Setup paths for models and templates
-        self.models_dir = "/code/datasets/ycbv/models"  # is not needed??
-        self.templates_dir = "/code/datasets/ycbv/templates/obj_000001" #test with one object
+        # Setup templates directory base path
+        self.templates_base_dir = "/code/datasets/ycbv/templates"
+        
+        # Initialize all object templates and mappings
+        self.object_templates = {}
+        self.object_id_to_name = {}
+        self.object_name_to_id = {}
+        
+        for idx, (object_name, object_id) in enumerate(self.object_name_mapping.items()):
+            self.object_id_to_name[idx] = object_name
+            self.object_name_to_id[object_name] = idx
+            
+            # Store template directory for each object
+            template_dir = f"{self.templates_base_dir}/{object_id}"
+            self.object_templates[object_name] = {
+                'template_dir': template_dir,
+                'object_id': object_id,
+                'mesh_path': self.mesh_files.get(object_name)
+            }
+        
+        print(f"Initialized {len(self.object_templates)} objects:")
+        for name, info in self.object_templates.items():
+            print(f"  {name} -> {info['object_id']} (templates: {info['template_dir']})")
 
         # Setup logging
         logging.basicConfig(level=logging.INFO)
@@ -75,8 +96,8 @@ class SAM6DISM_ROS:
         # Initialize the model
         self._initialize_model()
 
-        # Initialize templates
-        self._initialize_templates(self.templates_dir)
+        # Initialize templates for all objects
+        self._initialize_templates()
         
         # Initialize ROS node and action server
         rospy.init_node("sam6dism_segmentation")
@@ -127,7 +148,7 @@ class SAM6DISM_ROS:
 
         print("=> ISM model initialization complete")
 
-    def _initialize_templates(self, template_dir):
+    def _initialize_template(self, template_dir):
         """Initialize templates for the object detection"""
         num_templates = len(glob.glob(f"{template_dir}/*.npy"))
         if num_templates == 0:
@@ -173,6 +194,77 @@ class SAM6DISM_ROS:
                         templates, masks_cropped[:, 0, :, :]
                     ).unsqueeze(0).data
         return True
+
+    def _initialize_templates(self):
+        """Initialize templates for all objects without setting model ref_data"""
+        print("Loading templates for all objects...")
+        
+        # Store all template data for each object
+        self.all_object_templates = {}
+        
+        for object_name, object_info in self.object_templates.items():
+            template_dir = object_info['template_dir']
+            
+            if not os.path.exists(template_dir):
+                print(f"Warning: Template directory not found for {object_name}: {template_dir}")
+                continue
+                
+            num_templates = len(glob.glob(f"{template_dir}/*.npy"))
+            if num_templates == 0:
+                print(f"Warning: No templates found for {object_name} in {template_dir}")
+                continue
+                
+            print(f"Loading {num_templates} templates for {object_name}")
+            
+            boxes, masks, templates = [], [], []
+            for idx in range(num_templates):
+                rgb_path = os.path.join(template_dir, f'rgb_{idx}.png')
+                mask_path = os.path.join(template_dir, f'mask_{idx}.png')
+
+                if not os.path.exists(rgb_path) or not os.path.exists(mask_path):
+                    continue
+                    
+                image = Image.open(rgb_path)
+                mask = Image.open(mask_path)
+                boxes.append(mask.getbbox())
+
+                image = torch.from_numpy(np.array(image.convert("RGB")) / 255).float()
+                mask = torch.from_numpy(np.array(mask.convert("L")) / 255).float()
+                image = image * mask[:, :, None]
+                templates.append(image)
+                masks.append(mask.unsqueeze(-1))
+            
+            if len(templates) == 0:
+                print(f"Warning: No valid templates found for {object_name}")
+                continue
+                
+            # Process templates for this object
+            templates = torch.stack(templates).permute(0, 3, 1, 2)
+            masks = torch.stack(masks).permute(0, 3, 1, 2)
+            boxes = torch.tensor(np.array(boxes))
+            
+            processing_config = OmegaConf.create({"image_size": 224})
+            proposal_processor = CropResizePad(processing_config.image_size)
+            templates_processed = proposal_processor(images=templates, boxes=boxes).to(self.device)
+            masks_cropped = proposal_processor(images=masks, boxes=boxes).to(self.device)
+
+            # Compute features for this object
+            descriptors = self.model.descriptor_model.compute_features(
+                            templates_processed, token_name="x_norm_clstoken"
+                        ).unsqueeze(0).data
+            appe_descriptors = self.model.descriptor_model.compute_masked_patch_feature(
+                            templates_processed, masks_cropped[:, 0, :, :]
+                        ).unsqueeze(0).data
+            
+            # Store template data for this object
+            self.all_object_templates[object_name] = {
+                'descriptors': descriptors,
+                'appe_descriptors': appe_descriptors,
+                'object_info': object_info
+            }
+            
+        print(f"Successfully loaded templates for {len(self.all_object_templates)} objects")
+        return len(self.all_object_templates) > 0
 
     def _prepare_batch_data(self, depth_image):
         """Prepare batch data from depth and camera info"""
@@ -256,12 +348,8 @@ class SAM6DISM_ROS:
              
         detections.to_numpy()
         
-        # Save results as JSON with object-specific naming
-        if object_name:
-            save_filename = object_name
-        else:
-            save_filename = "sam6d_ism"
-        save_path = f"{self.output_dir}/{save_filename}"
+        # Save results as JSON only (no images as requested)
+        save_path = f"{self.output_dir}/{object_name}"
         detections.save_to_file(0, 0, 0, save_path, "Custom", return_results=False)
         detections_json = convert_npz_to_json(idx=0, list_npz_paths=[save_path+".npz"])
         save_json_bop23(save_path+".json", detections_json)
@@ -269,6 +357,157 @@ class SAM6DISM_ROS:
         return detections_json
 
     def segment_objects(self, req):
+        """Segment objects by looping through all meshes and finding best detections"""
+        print("Request segmentation for all objects...")
+        start_time = time.time()
+
+        # Extract data from request
+        rgb = req.rgb
+        depth = getattr(req, 'depth', None)  # depth is optional for ISM
+
+        # Get image dimensions
+        width, height = rgb.width, rgb.height
+        print(f"Image dimensions: {width}x{height}")
+
+        # Convert ROS message to numpy array
+        rgb_image = ros_numpy.numpify(rgb)
+        depth_image = ros_numpy.numpify(depth) if depth is not None else None
+
+        # Store best detections for each object
+        best_detections = {}
+
+        try:
+            # Loop through all objects and run inference for each
+            for object_name, template_data in self.all_object_templates.items():
+                print(f"Running inference for {object_name}...")
+
+                # Set model ref_data to current object's templates
+                self.model.ref_data = {}
+                self.model.ref_data["descriptors"] = template_data['descriptors']
+                self.model.ref_data["appe_descriptors"] = template_data['appe_descriptors']
+
+                # Get CAD path for geometric scoring
+                cad_path = template_data['object_info']['mesh_path']
+
+                # Run SAM-6D ISM inference for this object
+                detections_result = self._run_sam6d_inference(
+                    rgb_image,
+                    depth_image=depth_image,
+                    cad_path=cad_path,
+                    object_name=object_name
+                )
+
+                if detections_result is None or len(detections_result) == 0:
+                    print(f"No detections found for {object_name}")
+                    continue
+
+                # Collect all valid detections for this object
+                valid_detections = []
+                for detection in detections_result:
+                    if isinstance(detection, dict) and 'segmentation' in detection:
+                        score = detection.get('score', 0.0)
+                        # Apply confidence threshold
+                        if score >= self.confidence_threshold:
+                            detection['object_name'] = object_name
+                            detection['category_id'] = self.object_name_to_id[object_name]
+                            valid_detections.append(detection)
+
+                if valid_detections:
+                    best_detections[object_name] = valid_detections
+                    # Save all detections for this object
+                    save_path = f"{self.output_dir}/{object_name}"
+                    try:
+                        save_json_bop23(save_path + ".json", valid_detections)
+                        print(f"Saved {len(valid_detections)} detections for {object_name}")
+                    except Exception as e:
+                        print(f"Failed to save detections for {object_name}: {e}")
+
+            # Check if any objects were detected
+            if not best_detections:
+                print("No objects detected above confidence threshold")
+                rospy.loginfo("No object detected")
+                self.server.set_aborted()
+                return
+
+            print(f"\nDetected objects and their instances:")
+            for obj_name, detections in best_detections.items():
+                print(f"  {obj_name}: {len(detections)} instances")
+
+            # Prepare label image and response for all instances
+            label_image = None
+            class_names = []
+            class_confidences = []
+            instance_counter = 0
+            instance_map = {}
+
+            # Assign a unique label for each instance across all objects
+            for obj_name, detections in best_detections.items():
+                for detection in detections:
+                    try:
+                        rle_data = detection["segmentation"]
+                        # Fix the size format
+                        if "size" in rle_data and len(rle_data["size"]) == 3:
+                            corrected_rle = {
+                                "counts": rle_data["counts"],
+                                "size": [rle_data["size"][1], rle_data["size"][2]]
+                            }
+                            mask = rle_to_mask(corrected_rle)
+                        elif "size" in rle_data and len(rle_data["size"]) == 2:
+                            mask = rle_to_mask(rle_data)
+                        else:
+                            print(f"Unexpected RLE size format: {rle_data.get('size', 'missing')}")
+                            continue
+
+                        if label_image is None:
+                            label_image = np.full_like(mask, -1, dtype=np.int16)
+
+                        # Only add to class names if the mask actually gets assigned pixels
+                        mask_pixels = (mask > 0) & (label_image == -1)
+                        if np.any(mask_pixels):
+                            label_image[mask_pixels] = instance_counter
+                            # Use detection's own object_name if present, else fallback to obj_name
+                            detection_object_name = detection.get('object_name', obj_name)
+                            class_names.append(detection_object_name)
+                            class_confidences.append(detection.get('score', 0.0))
+                            instance_map[instance_counter] = detection_object_name
+                            instance_counter += 1
+                        else:
+                            print(f"Skipping overlapping detection for {obj_name}")
+                    except Exception as e:
+                        print(f"Error processing detection for {obj_name}: {e}")
+                        continue
+
+            if label_image is None or instance_counter == 0:
+                rospy.loginfo("No valid detections found")
+                self.server.set_aborted()
+                return
+
+            result = GenericImgProcAnnotatorResult()
+            result.success = True
+            result.class_confidences = class_confidences
+            result.image = ros_numpy.msgify(ROSImage, label_image, encoding='16SC1')
+            result.class_names = class_names
+
+            print(f"\nTotal object instances detected: {instance_counter}")
+            print("\nDetected Objects:")
+            print(result.class_names)
+            print(result.class_confidences)
+
+
+        except Exception as e:
+            print(f"Error in SAM-6D ISM inference: {e}")
+            import traceback
+            traceback.print_exc()
+            self.server.set_aborted()
+            return
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f'Total execution time: {elapsed_time:.2f} seconds')
+
+        self.server.set_succeeded(result)
+
+    def segment_object(self, req):
         print("Request segmentation...")
         start_time = time.time()
 
@@ -400,7 +639,6 @@ class SAM6DISM_ROS:
         print('Execution time:', elapsed_time, 'seconds')
         
         self.server.set_succeeded(result)
-
 
 def parse_opt():
     parser = argparse.ArgumentParser()

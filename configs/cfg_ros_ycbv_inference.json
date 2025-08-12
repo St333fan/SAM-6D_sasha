@@ -1,6 +1,6 @@
 {
   "segmentor_model": "fastsam",
-  "object_mapping": {
+  "object_mappings": {
     "002_master_chef_can": "obj_000001",
     "003_cracker_box": "obj_000002",
     "004_sugar_box": "obj_000003",
@@ -23,12 +23,15 @@
     "052_extra_large_clamp": "obj_000020",
     "061_foam_brick": "obj_000021"
   },
+    "object_mapping": {
+    "002_master_chef_can": "obj_000001"
+  },
   "cam_K": [
     538.391033533567, 0.0, 315.3074696331638,
     0.0, 538.085452058436, 233.0483557773859,
     0.0, 0.0, 1.0
   ],
-  "mesh_files": {
+  "mesh_files_all": {
     "002_master_chef_can": "/code/templates/ycbv/models/obj_000001.ply",
     "003_cracker_box": "/code/templates/ycbv/models/obj_000002.ply",
     "004_sugar_box": "/code/templates/ycbv/models/obj_000003.ply",
@@ -53,6 +56,7 @@
   },
   "depth_scale": 1000.0,
   "stability_score_thresh": 0.97,
+  "confidence_threshold": 0.55,
   "models_dir": "/code/templates/ycbv/models",
   "templates_dir": "/code/templates"
 }
