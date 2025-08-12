@@ -1,6 +1,6 @@
 {
   "segmentor_model": "fastsam",
-  "object_mappings": {
+  "object_mapping": {
     "002_master_chef_can": "obj_000001",
     "003_cracker_box": "obj_000002",
     "004_sugar_box": "obj_000003",
@@ -23,36 +23,33 @@
     "052_extra_large_clamp": "obj_000020",
     "061_foam_brick": "obj_000021"
   },
-    "object_mapping": {
-    "002_master_chef_can": "obj_000001"
-  },
   "cam_K": [
     538.391033533567, 0.0, 315.3074696331638,
     0.0, 538.085452058436, 233.0483557773859,
     0.0, 0.0, 1.0
   ],
-  "mesh_files_all": {
-    "002_master_chef_can": "/code/templates/ycbv/models/obj_000001.ply",
-    "003_cracker_box": "/code/templates/ycbv/models/obj_000002.ply",
-    "004_sugar_box": "/code/templates/ycbv/models/obj_000003.ply",
-    "005_tomato_soup_can": "/code/templates/ycbv/models/obj_000004.ply",
-    "006_mustard_bottle": "/code/templates/ycbv/models/obj_000005.ply",
-    "007_tuna_fish_can": "/code/templates/ycbv/models/obj_000006.ply",
-    "008_pudding_box": "/code/templates/ycbv/models/obj_000007.ply",
-    "009_gelatin_box": "/code/templates/ycbv/models/obj_000008.ply",
-    "010_potted_meat_can": "/code/templates/ycbv/models/obj_000009.ply",
-    "011_banana": "/code/templates/ycbv/models/obj_000010.ply",
-    "019_pitcher_base": "/code/templates/ycbv/models/obj_000011.ply",
-    "021_bleach_cleanser": "/code/templates/ycbv/models/obj_000012.ply",
-    "024_bowl": "/code/templates/ycbv/models/obj_000013.ply",
-    "025_mug": "/code/templates/ycbv/models/obj_000014.ply",
-    "035_power_drill": "/code/templates/ycbv/models/obj_000015.ply",
-    "036_wood_block": "/code/templates/ycbv/models/obj_000016.ply",
-    "037_scissors": "/code/templates/ycbv/models/obj_000017.ply",
-    "040_large_marker": "/code/templates/ycbv/models/obj_000018.ply",
-    "051_large_clamp": "/code/templates/ycbv/models/obj_000019.ply",
-    "052_extra_large_clamp": "/code/templates/ycbv/models/obj_000020.ply",
-    "061_foam_brick": "/code/templates/ycbv/models/obj_000021.ply"
+  "mesh_files": {
+    "002_master_chef_can": "/code/datasets/ycbv/models/obj_000001.ply",
+    "003_cracker_box": "/code/datasets/ycbv/models/obj_000002.ply",
+    "004_sugar_box": "/code/datasets/ycbv/models/obj_000003.ply",
+    "005_tomato_soup_can": "/code/datasets/ycbv/models/obj_000004.ply",
+    "006_mustard_bottle": "/code/datasets/ycbv/models/obj_000005.ply",
+    "007_tuna_fish_can": "/code/datasets/ycbv/models/obj_000006.ply",
+    "008_pudding_box": "/code/datasets/ycbv/models/obj_000007.ply",
+    "009_gelatin_box": "/code/datasets/ycbv/models/obj_000008.ply",
+    "010_potted_meat_can": "/code/datasets/ycbv/models/obj_000009.ply",
+    "011_banana": "/code/datasets/ycbv/models/obj_000010.ply",
+    "019_pitcher_base": "/code/datasets/ycbv/models/obj_000011.ply",
+    "021_bleach_cleanser": "/code/datasets/ycbv/models/obj_000012.ply",
+    "024_bowl": "/code/datasets/ycbv/models/obj_000013.ply",
+    "025_mug": "/code/datasets/ycbv/models/obj_000014.ply",
+    "035_power_drill": "/code/datasets/ycbv/models/obj_000015.ply",
+    "036_wood_block": "/code/datasets/ycbv/models/obj_000016.ply",
+    "037_scissors": "/code/datasets/ycbv/models/obj_000017.ply",
+    "040_large_marker": "/code/datasets/ycbv/models/obj_000018.ply",
+    "051_large_clamp": "/code/datasets/ycbv/models/obj_000019.ply",
+    "052_extra_large_clamp": "/code/datasets/ycbv/models/obj_000020.ply",
+    "061_foam_brick": "/code/datasets/ycbv/models/obj_000021.ply"
   },
   "depth_scale": 1000.0,
   "stability_score_thresh": 0.97,

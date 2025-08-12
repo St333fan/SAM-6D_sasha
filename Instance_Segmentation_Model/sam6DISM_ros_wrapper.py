@@ -415,12 +415,12 @@ class SAM6DISM_ROS:
                 if valid_detections:
                     best_detections[object_name] = valid_detections
                     # Save all detections for this object
-                    save_path = f"{self.output_dir}/{object_name}"
-                    try:
-                        save_json_bop23(save_path + ".json", valid_detections)
-                        print(f"Saved {len(valid_detections)} detections for {object_name}")
-                    except Exception as e:
-                        print(f"Failed to save detections for {object_name}: {e}")
+                    #save_path = f"{self.output_dir}/{object_name}"
+                    #try:
+                    #    save_json_bop23(save_path + ".json", valid_detections)
+                    #    print(f"Saved {len(valid_detections)} detections for {object_name}")
+                    #except Exception as e:
+                    #    print(f"Failed to save detections for {object_name}: {e}")
 
             # Check if any objects were detected
             if not best_detections:
