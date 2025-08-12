@@ -72,6 +72,7 @@ Thumbs.db
 #templates/
 #**/templates/
 Data/Example/outputs/
+tmp/
 
 # models 
 Instance_Segmentation_Model/checkpoints/
