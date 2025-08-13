@@ -1,6 +1,6 @@
 {
   "segmentor_model": "fastsam",
-  "object_mapping": {
+  "object_mappingg": {
     "002_master_chef_can": "obj_000001",
     "003_cracker_box": "obj_000002",
     "004_sugar_box": "obj_000003",
@@ -22,6 +22,10 @@
     "051_large_clamp": "obj_000019",
     "052_extra_large_clamp": "obj_000020",
     "061_foam_brick": "obj_000021"
+  },
+  "object_mapping": {
+    "003_cracker_box": "obj_000002",
+    "006_mustard_bottle": "obj_000005"
   },
   "cam_K": [
     538.391033533567, 0.0, 315.3074696331638,
@@ -53,7 +57,7 @@
   },
   "depth_scale": 1000.0,
   "stability_score_thresh": 0.97,
-  "confidence_threshold": 0.55,
+  "confidence_threshold": 0.4,
   "models_dir": "/code/templates/ycbv/models",
   "templates_dir": "/code/templates"
 }

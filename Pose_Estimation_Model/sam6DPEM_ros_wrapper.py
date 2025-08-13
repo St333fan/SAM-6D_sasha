@@ -54,7 +54,7 @@ class SAM6DPEM_ROS:
         print(f"ISM results directory: {self.ism_results_dir}")
 
         # Configuration parameters for SAM-6D PEM
-        self.det_score_thresh = 0.4
+        self.det_score_thresh = 0.2
         self.gpus = "0"
         self.model_name = "pose_estimation_model"
         self.config_path = os.path.join(code_dir, "config", "base.yaml")
@@ -389,35 +389,29 @@ class SAM6DPEM_ROS:
         class_names = req.class_names
         rgb = req.rgb
         depth = req.depth
-
-        # Print incoming class names for debugging
+        print(class_names)
         print(f"Received class names: {class_names}")
         print(f"Number of objects to estimate pose for: {len(class_names)}")
-        
         for i, name in enumerate(class_names):
             print(f"  Object {i+1}: {name}")
 
         width, height = rgb.width, rgb.height
         print(f"Image dimensions: {width}x{height}")
-        
+
         # Convert ROS messages to numpy arrays
         image = ros_numpy.numpify(rgb)
-        
-        # Ensure RGB image is in correct format (H, W, 3) with uint8
         if len(image.shape) == 3 and image.shape[2] == 3:
             if image.dtype != np.uint8:
-                if image.max() <= 1.0:  # Normalized to [0,1]
+                if image.max() <= 1.0:
                     image = (image * 255).astype(np.uint8)
                 else:
                     image = image.astype(np.uint8)
         else:
             print(f"WARNING: Unexpected RGB image format: {image.shape}, dtype: {image.dtype}")
-        
+
         try:
             depth_img = ros_numpy.numpify(depth)
-            # Convert depth image to supported dtype (float32) and to meters
             if depth_img.dtype == np.uint16:
-                # Assume depth is in millimeters, convert to meters
                 depth_img = depth_img.astype(np.float32) / self.depth_scale
             elif depth_img.dtype != np.float32:
                 depth_img = depth_img.astype(np.float32)
@@ -439,9 +433,7 @@ class SAM6DPEM_ROS:
         print("RGB", image.shape, image.dtype)
         print("Depth", depth_img.shape, depth_img.dtype)
 
-        # Load ISM results for the requested objects
         ism_detections = self._load_ism_results_for_objects(class_names)
-        
         if not ism_detections:
             print("No ISM detections found for any requested objects")
             response = GenericImgProcAnnotatorResult()
@@ -450,65 +442,60 @@ class SAM6DPEM_ROS:
             self.server.set_succeeded(response)
             return
 
-        # Process each object with detections
         valid_class_names = []
         pose_results = []
-
-        # Collect all valid detections for batch processing
         batch_data = []
         batch_objects = []
-        
+
         for class_name, detections in ism_detections.items():
             print(f"Processing {len(detections)} detections for {class_name}")
-            
-            # Check if we have a mapping for this class
             if class_name not in self.object_name_mapping:
                 print(f"  -> No mapping found for {class_name}, skipping")
                 continue
-                
             mapped_name = self.object_name_mapping[class_name]
             print(f"  -> Mapped to: {mapped_name}")
-            
-            # Check if we have mesh for this object
-            if mapped_name not in self.meshes:
+            mapped_name = class_name  # Bug should be fixed in the future
+
+            if class_name not in self.meshes:
                 print(f"  -> No mesh available for {mapped_name}, skipping")
                 continue
 
-            # Process each detection for this object
-            for det_idx, detection in enumerate(detections):
-                print(f"  -> Processing detection {det_idx + 1}/{len(detections)} for {class_name}")
-                
+            # Filter detections by score threshold
+            filtered_detections = [d for d in detections if d.get('score', 0.0) >= self.det_score_thresh]
+            # Sort by score descending and keep only top 10 to save on VRAM
+            filtered_detections = sorted(filtered_detections, key=lambda d: d.get('score', 0.0), reverse=True)[:10]
+
+            if not filtered_detections:
+                print(f"  -> No detections above threshold {self.det_score_thresh} for {class_name}")
+                continue
+
+            for det_idx, detection in enumerate(filtered_detections):
+                score = detection.get('score', 0.0)
+                print(f"  -> Processing detection {det_idx + 1}/{len(filtered_detections)} for {class_name} (score: {score:.3f})")
                 try:
-                    # Convert RLE segmentation to mask
                     rle_data = detection["segmentation"]
                     mask = self._convert_rle_to_mask(rle_data, (height, width))
-                    
                     if mask is None:
                         print(f"    -> Failed to convert RLE to mask")
                         continue
-                    
-                    # Debug mask information
                     mask_pixels = np.sum(mask > 0)
                     print(f"    -> Mask has {mask_pixels} non-zero pixels")
                     if mask_pixels == 0:
                         print(f"    -> Empty mask, skipping")
                         continue
 
-                    # Process segmentation
                     processed_data = self._process_segmentation(mask, image, depth_img, mapped_name)
                     if processed_data is None:
                         print(f"    -> Failed to process segmentation")
                         continue
 
-                    # Extract template features for this object
                     template_features = self._extract_template_features(mapped_name)
                     if template_features is None:
                         print(f"    -> Failed to extract template features for {mapped_name}")
                         continue
 
                     batch_data.append(processed_data)
-                    batch_objects.append((class_name, mapped_name, template_features, detection.get('score', 0.0)))
-                    
+                    batch_objects.append((class_name, mapped_name, template_features, score))
                 except Exception as e:
                     print(f"    -> Error processing detection: {str(e)}")
                     continue
@@ -523,18 +510,12 @@ class SAM6DPEM_ROS:
 
         print(f"Processing {len(batch_data)} valid detections")
 
-        # Prepare batch input for model
         all_rgb = torch.stack([data['rgb'] for data in batch_data]).cuda()
         all_cloud = torch.stack([data['cloud'] for data in batch_data]).cuda()
         all_rgb_choose = torch.stack([data['rgb_choose'] for data in batch_data]).cuda()
-        
         ninstance = all_rgb.size(0)
-        
-        # Process in batches by object type (since different objects have different templates)
+
         results_by_batch = []
-        current_idx = 0
-        
-        # Group by object type for batch processing
         object_groups = {}
         for idx, (class_name, mapped_name, template_features, score) in enumerate(batch_objects):
             if mapped_name not in object_groups:
@@ -542,25 +523,21 @@ class SAM6DPEM_ROS:
             object_groups[mapped_name].append((idx, class_name, template_features, score))
 
         print("=> running model inference...")
-        
+
         for mapped_name, group_info in object_groups.items():
             indices = [item[0] for item in group_info]
             class_names_group = [item[1] for item in group_info]
-            template_features = group_info[0][2]  # All same object type
-            
+            template_features = group_info[0][2]
             print(f"  -> Processing {len(indices)} instances of {mapped_name}")
-            
-            # Extract data for this group
+
             group_rgb = all_rgb[indices]
             group_cloud = all_cloud[indices]
             group_rgb_choose = all_rgb_choose[indices]
             group_size = len(indices)
-            
-            # Use model points for this object type
             model_points = self.model_points[mapped_name]
             group_model = torch.FloatTensor(model_points).unsqueeze(0).repeat(group_size, 1, 1).cuda()
             group_K = torch.FloatTensor(self.intrinsics).unsqueeze(0).repeat(group_size, 1, 1).cuda()
-            
+
             input_data = {
                 'pts': group_cloud,
                 'rgb': group_rgb,
@@ -574,77 +551,91 @@ class SAM6DPEM_ROS:
                     all_tem_pts, all_tem_feat = template_features
                     input_data['dense_po'] = all_tem_pts.repeat(group_size, 1, 1)
                     input_data['dense_fo'] = all_tem_feat.repeat(group_size, 1, 1)
-                    
                     out = self.model(input_data)
 
-                # Process results for this group - following original logic
                 if 'pred_pose_score' in out.keys():
-                    pose_scores = out['pred_pose_score']
+                    pose_scores = out['pred_pose_score'].detach().cpu().numpy()
                 else:
-                    pose_scores = torch.ones(group_size).cuda()
-                    
-                pose_scores = pose_scores.detach().cpu().numpy()
-                pred_rot = out['pred_R'].detach().cpu().numpy()
-                pred_trans = out['pred_t'].detach().cpu().numpy() * 1000  # Convert back to mm
+                    pose_scores = np.ones(group_size)
+                # If out has 'score', use it as ISM detection score multiplier
+                if 'score' in out.keys():
+                    detection_scores = out['score'].detach().cpu().numpy()
+                else:
+                    # fallback: use ISM score from group_info
+                    detection_scores = np.array([item[3] for item in group_info])
 
-                # Store results for this group
+                final_scores = pose_scores * detection_scores
+                pred_rot = out['pred_R'].detach().cpu().numpy()
+                pred_trans = out['pred_t'].detach().cpu().numpy()
+
                 for i, (orig_idx, class_name, _, ism_score) in enumerate(group_info):
                     results_by_batch.append({
                         'class_name': class_name,
                         'rotation': pred_rot[i],
                         'translation': pred_trans[i],
-                        'pose_score': pose_scores[i],
+                        'pose_score': final_scores[i],
                         'ism_score': ism_score,
-                        'original_index': orig_idx
+                        'original_index': orig_idx,
+                        'mapped_name': mapped_name
                     })
-
             except Exception as e:
                 print(f"  -> Model inference failed for {mapped_name}: {str(e)}")
                 continue
 
         print("=> processing results...")
-        
-        # Sort results by original index to maintain order
-        results_by_batch.sort(key=lambda x: x['original_index'])
-        
+
+        # Print all object instances with pose and ISM score
+        print("All detected object instances with pose and ISM score:")
         for result in results_by_batch:
+            class_name = result['class_name']
+            translation = result['translation']
+            pose_score = result['pose_score']
+            ism_score = result['ism_score']
+            print(f"  {class_name}: Position [{translation[0]:.6f}, {translation[1]:.6f}, {translation[2]:.6f}], "
+              f"Pose Score: {pose_score:.6f}, ISM Score: {ism_score:.6f}")
+
+        # Only keep the best pose per object (highest pose_score)
+        best_results = {}
+        for result in results_by_batch:
+            key = result['class_name']
+            if key not in best_results or result['pose_score'] > best_results[key]['pose_score']:
+                best_results[key] = result
+
+        # Sort results by original index to maintain order if needed
+        sorted_best_results = sorted(best_results.values(), key=lambda x: x['original_index'])
+        #sorted_best_results = best_results
+
+        for result in sorted_best_results:
             try:
                 class_name = result['class_name']
                 rotation_matrix = result['rotation']
                 translation = result['translation']
                 pose_score = result['pose_score']
                 ism_score = result['ism_score']
-                
-                # Check if pose is valid
+
                 if np.allclose(translation, 0) and np.allclose(rotation_matrix, np.eye(3)):
                     print(f"  -> WARNING: Invalid pose for {class_name}")
                     continue
-                
-                # Convert pose to ROS Pose message
-                pose_msg = Pose()
-                
-                # Convert rotation matrix to quaternion
-                quaternion = tf3d.quaternions.mat2quat(rotation_matrix)
 
-                pose_msg.position = Point(x=float(translation[0]), 
-                                        y=float(translation[1]), 
-                                        z=float(translation[2]))
-                pose_msg.orientation = Quaternion(x=float(quaternion[1]), 
-                                                y=float(quaternion[2]), 
-                                                z=float(quaternion[3]), 
-                                                w=float(quaternion[0]))
-                
+                pose_msg = Pose()
+                quaternion = tf3d.quaternions.mat2quat(rotation_matrix)
+                pose_msg.position = Point(x=float(translation[0]),
+                                          y=float(translation[1]),
+                                          z=float(translation[2]))
+                pose_msg.orientation = Quaternion(x=float(quaternion[1]),
+                                                  y=float(quaternion[2]),
+                                                  z=float(quaternion[3]),
+                                                  w=float(quaternion[0]))
+
                 print(f"  -> Pose for {class_name}:")
                 print(f"     Position: [{translation[0]:.6f}, {translation[1]:.6f}, {translation[2]:.6f}]")
                 print(f"     Pose Score: {pose_score:.6f}, ISM Score: {ism_score:.6f}")
-                
+
                 pose_results.append(pose_msg)
                 valid_class_names.append(class_name)
-                
             except Exception as e:
                 print(f"  -> Error processing result for {result['class_name']}: {str(e)}")
 
-        # Create response
         response = GenericImgProcAnnotatorResult()
         response.pose_results = pose_results
         response.class_names = valid_class_names
@@ -653,7 +644,7 @@ class SAM6DPEM_ROS:
         elapsed_time = end_time - start_time
         print(f'Total execution time: {elapsed_time:.2f} seconds')
         print(f'Successfully estimated poses for {len(pose_results)} object instances')
-        
+
         self.server.set_succeeded(response)
 
 
@@ -663,7 +654,7 @@ def parse_opt():
                        default="/code/configs/cfg_ros_ycbv_inference.json",
                        help='Path to configuration file')
     parser.add_argument('--ism_results_dir',
-                       default="/code/tmp/sam6d_ism",
+                       default="/code/tmp",
                        help='Directory where ISM results are saved')
     opt = parser.parse_args()
     return opt

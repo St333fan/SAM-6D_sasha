@@ -413,7 +413,9 @@ class SAM6DISM_ROS:
                             valid_detections.append(detection)
 
                 if valid_detections:
-                    best_detections[object_name] = valid_detections
+                    # Keep only the best detection (highest score) for this object
+                    best_detection = max(valid_detections, key=lambda d: d.get('score', 0.0))
+                    best_detections[object_name] = [best_detection]
                     # Save all detections for this object
                     #save_path = f"{self.output_dir}/{object_name}"
                     #try:
@@ -440,7 +442,9 @@ class SAM6DISM_ROS:
             instance_counter = 0
             instance_map = {}
 
-            # Assign a unique label for each instance across all objects
+
+            # Assign a unique label for each instance across all objects (allow overlapping, all detections above threshold)
+            instance_masks = []
             for obj_name, detections in best_detections.items():
                 for detection in detections:
                     try:
@@ -461,18 +465,26 @@ class SAM6DISM_ROS:
                         if label_image is None:
                             label_image = np.full_like(mask, -1, dtype=np.int16)
 
-                        # Only add to class names if the mask actually gets assigned pixels
-                        mask_pixels = (mask > 0) & (label_image == -1)
-                        if np.any(mask_pixels):
-                            label_image[mask_pixels] = instance_counter
-                            # Use detection's own object_name if present, else fallback to obj_name
-                            detection_object_name = detection.get('object_name', obj_name)
-                            class_names.append(detection_object_name)
-                            class_confidences.append(detection.get('score', 0.0))
-                            instance_map[instance_counter] = detection_object_name
-                            instance_counter += 1
-                        else:
-                            print(f"Skipping overlapping detection for {obj_name}")
+                        current_mask = (mask > 0)
+                        overlap = (label_image != -1) & current_mask
+                        non_overlap = (label_image == -1) & current_mask
+
+                        # Assign new label to non-overlapping region
+                        label_image[non_overlap] = instance_counter
+
+                        # For overlapping region, assign a chessboard pattern of the two labels
+                        if np.any(overlap):
+                            prev_label = label_image[overlap][0]  # just pick one
+                            chessboard = np.indices(label_image.shape).sum(axis=0) % 2
+                            label_image[overlap & (chessboard == 0)] = prev_label
+                            label_image[overlap & (chessboard == 1)] = instance_counter
+
+                        detection_object_name = detection.get('object_name', obj_name)
+                        class_names.append(detection_object_name)
+                        class_confidences.append(detection.get('score', 0.0))
+                        instance_map[instance_counter] = detection_object_name
+                        instance_masks.append(mask)
+                        instance_counter += 1
                     except Exception as e:
                         print(f"Error processing detection for {obj_name}: {e}")
                         continue
