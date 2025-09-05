@@ -69,6 +69,21 @@ Data/Example/outputs/sam6d_results
 ROS integration was only tested with Sasha + GraspingPipeline + DOPE setup docker-compose, check this git out:
 https://github.com/St333fan/DOPE
 
+# Render Custom Objects
+Install blenderproc, you can follow https://github.com/St333fan/BlenderProcRenderBOP
+```bash
+# open terminal export blender proc path
+find ~/.local/bin -name blenderproc
+export PATH=$PATH:~/.local/bin
+
+cd ../Render/
+blenderproc run render_custom_templates.py --cad_path $CAD_PATH --output_dir $OUTPUT_DIR
+# for now only work with .stl files! files will be placed under templates, repackage them under obj_00000N folder name, solution is in progress
+blenderproc run render_custom_templates_improved.py --cad_path /home/st3fan/Projects/DOPE/datasets/templates/manibot/models/models/obj_000001.ply --output_dir /home/st3fan/Projects/DOPE/datasets/manibot
+
+
+```
+
 # Original README -> <p align="center"> <font color=#008000>SAM-6D</font>: Segment Anything Model Meets Zero-Shot 6D Object Pose Estimation </p>
 
 ####  <p align="center"> [Jiehong Lin](https://jiehonglin.github.io/), [Lihua Liu](https://github.com/foollh), [Dekun Lu](https://github.com/WuTanKun), [Kui Jia](http://kuijia.site/)</p>
