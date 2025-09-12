@@ -9,11 +9,11 @@
     0.0, 0.0, 1.0
   ],
   "mesh_files": {
-    "001_ahorn_sirup": "/code/templates/manibot/models/models/obj_000001.ply"
+    "001_ahorn_sirup": "/code/datasets/manibot/models/obj_000001.ply"
   },
   "depth_scale": 1000.0,
   "stability_score_thresh": 0.97,
   "confidence_threshold": 0.4,
-  "models_dir": "/code/templates/manibot/models/models",
-  "templates_dir": "/code/templates"
+  "models_dir": "/code/datasets/manibot/models",
+  "templates_dir": "/code/datasets/manibot/templates"
 }

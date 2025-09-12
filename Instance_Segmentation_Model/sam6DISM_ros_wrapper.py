@@ -54,8 +54,9 @@ class SAM6DISM_ROS:
         self.segmentor_model = config.get("segmentor_model", "fastsam")
         self.stability_score_thresh = config.get("stability_score_thresh", 0.97)
         self.depth_scale = config.get("depth_scale", 1000.0)
-        self.confidence_threshold = config.get("confidence_threshold", 0.55)  # Add confidence threshold
-        
+        self.confidence_threshold = config.get("confidence_threshold", 0.5  # Add confidence threshold
+        self.templates_base_dir = config["templates_dir"] # Setup templates directory base path
+
         print(f"Using intrinsics: {self.intrinsics}")
         print(f"Output directory: {self.output_dir}")
         print(f"Segmentor model: {self.segmentor_model}")
@@ -65,9 +66,6 @@ class SAM6DISM_ROS:
 
         # Store mesh information for each object
         self.mesh_files = config.get('mesh_files', {})
-        
-        # Setup templates directory base path
-        self.templates_base_dir = "/code/datasets/ycbv/templates"
         
         # Initialize all object templates and mappings
         self.object_templates = {}

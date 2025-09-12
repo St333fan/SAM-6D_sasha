@@ -49,6 +49,7 @@ class SAM6DPEM_ROS:
         self.intrinsics = np.asarray(config['cam_K']).reshape((3, 3))
         self.ism_results_dir = ism_results_dir
         self.depth_scale = config.get("depth_scale", 1000.0)
+        self.templates_base_dir = config["templates_dir"] # Setup templates directory base path
         
         print(f"Using intrinsics: {self.intrinsics}")
         print(f"ISM results directory: {self.ism_results_dir}")
@@ -75,9 +76,6 @@ class SAM6DPEM_ROS:
         
         # Store mesh information for each object
         self.mesh_files = config.get('mesh_files', {})
-        
-        # Setup templates directory base path
-        self.templates_base_dir = "/code/datasets/ycbv/templates"
         
         # Initialize all object templates and mappings
         self.object_templates = {}
