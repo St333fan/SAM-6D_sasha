@@ -1,5 +1,5 @@
 {
-  "segmentor_model": "fastsam",
+  "segmentor_model": "sam",
   "object_mappingg": {
     "002_master_chef_can": "obj_000001",
     "003_cracker_box": "obj_000002",
@@ -58,6 +58,6 @@
   "depth_scale": 1000.0,
   "stability_score_thresh": 0.97,
   "confidence_threshold": 0.4,
-  "models_dir": "/code/templates/ycbv/models",
-  "templates_dir": "/code/templates"
+  "models_dir": "/code/datasets/ycbv/models",
+  "templates_dir": "/code/datasets/ycbv/templates"
 }

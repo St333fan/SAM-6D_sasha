@@ -50,6 +50,7 @@ class SAM6DPEM_ROS:
         self.ism_results_dir = ism_results_dir
         self.depth_scale = config.get("depth_scale", 1000.0)
         self.templates_base_dir = config["templates_dir"] # Setup templates directory base path
+        self.pem_batch_size = config.get("pem_batch_size", 8) # Batch size for PEM
         
         print(f"Using intrinsics: {self.intrinsics}")
         print(f"ISM results directory: {self.ism_results_dir}")
@@ -155,6 +156,12 @@ class SAM6DPEM_ROS:
             rospy.logwarn(f"Checkpoint not found: {checkpoint_path}")
             
         self.cfg = cfg
+
+        # Add memory management
+        torch.cuda.empty_cache()
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+
         print("=> model initialization complete")
 
     def _load_config(self):
@@ -377,8 +384,6 @@ class SAM6DPEM_ROS:
             print(f"Error converting RLE to mask: {e}")
             return None
 
-
-
     def estimate_pose(self, req):
         print("Request pose estimation...")
         start_time = time.time()
@@ -461,7 +466,7 @@ class SAM6DPEM_ROS:
             # Filter detections by score threshold
             filtered_detections = [d for d in detections if d.get('score', 0.0) >= self.det_score_thresh]
             # Sort by score descending and keep only top 10 to save on VRAM
-            filtered_detections = sorted(filtered_detections, key=lambda d: d.get('score', 0.0), reverse=True)[:10]
+            filtered_detections = sorted(filtered_detections, key=lambda d: d.get('score', 0.0), reverse=True)[:50]
 
             if not filtered_detections:
                 print(f"  -> No detections above threshold {self.det_score_thresh} for {class_name}")
@@ -523,62 +528,68 @@ class SAM6DPEM_ROS:
         print("=> running model inference...")
 
         for mapped_name, group_info in object_groups.items():
-            indices = [item[0] for item in group_info]
-            class_names_group = [item[1] for item in group_info]
+            num_instances = len(group_info)
             template_features = group_info[0][2]
-            print(f"  -> Processing {len(indices)} instances of {mapped_name}")
+            print(f"  -> Processing {num_instances} instances of {mapped_name}")
 
-            group_rgb = all_rgb[indices]
-            group_cloud = all_cloud[indices]
-            group_rgb_choose = all_rgb_choose[indices]
-            group_size = len(indices)
-            model_points = self.model_points[mapped_name]
-            group_model = torch.FloatTensor(model_points).unsqueeze(0).repeat(group_size, 1, 1).cuda()
-            group_K = torch.FloatTensor(self.intrinsics).unsqueeze(0).repeat(group_size, 1, 1).cuda()
+            for i in range(0, num_instances, self.pem_batch_size):
+                batch_info = group_info[i:i+self.pem_batch_size]
+                indices = [item[0] for item in batch_info]
+                
+                print(f"    -> Running batch {i//self.pem_batch_size + 1}/{(num_instances + self.pem_batch_size - 1)//self.pem_batch_size} with {len(indices)} instances")
 
-            input_data = {
-                'pts': group_cloud,
-                'rgb': group_rgb,
-                'rgb_choose': group_rgb_choose,
-                'model': group_model,
-                'K': group_K
-            }
+                group_rgb = all_rgb[indices]
+                group_cloud = all_cloud[indices]
+                group_rgb_choose = all_rgb_choose[indices]
+                group_size = len(indices)
+                model_points = self.model_points[mapped_name]
+                group_model = torch.FloatTensor(model_points).unsqueeze(0).repeat(group_size, 1, 1).cuda()
+                group_K = torch.FloatTensor(self.intrinsics).unsqueeze(0).repeat(group_size, 1, 1).cuda()
 
-            try:
-                with torch.no_grad():
-                    all_tem_pts, all_tem_feat = template_features
-                    input_data['dense_po'] = all_tem_pts.repeat(group_size, 1, 1)
-                    input_data['dense_fo'] = all_tem_feat.repeat(group_size, 1, 1)
-                    out = self.model(input_data)
+                input_data = {
+                    'pts': group_cloud,
+                    'rgb': group_rgb,
+                    'rgb_choose': group_rgb_choose,
+                    'model': group_model,
+                    'K': group_K
+                }
 
-                if 'pred_pose_score' in out.keys():
-                    pose_scores = out['pred_pose_score'].detach().cpu().numpy()
-                else:
-                    pose_scores = np.ones(group_size)
-                # If out has 'score', use it as ISM detection score multiplier
-                if 'score' in out.keys():
-                    detection_scores = out['score'].detach().cpu().numpy()
-                else:
-                    # fallback: use ISM score from group_info
-                    detection_scores = np.array([item[3] for item in group_info])
+                try:
+                    with torch.no_grad():
+                        all_tem_pts, all_tem_feat = template_features
+                        input_data['dense_po'] = all_tem_pts.repeat(group_size, 1, 1)
+                        input_data['dense_fo'] = all_tem_feat.repeat(group_size, 1, 1)
+                        out = self.model(input_data)
 
-                final_scores = pose_scores * detection_scores
-                pred_rot = out['pred_R'].detach().cpu().numpy()
-                pred_trans = out['pred_t'].detach().cpu().numpy()
+                    if 'pred_pose_score' in out.keys():
+                        pose_scores = out['pred_pose_score'].detach().cpu().numpy()
+                    else:
+                        pose_scores = np.ones(group_size)
+                    # If out has 'score', use it as ISM detection score multiplier
+                    if 'score' in out.keys():
+                        detection_scores = out['score'].detach().cpu().numpy()
+                    else:
+                        # fallback: use ISM score from group_info
+                        detection_scores = np.array([item[3] for item in batch_info])
 
-                for i, (orig_idx, class_name, _, ism_score) in enumerate(group_info):
-                    results_by_batch.append({
-                        'class_name': class_name,
-                        'rotation': pred_rot[i],
-                        'translation': pred_trans[i],
-                        'pose_score': final_scores[i],
-                        'ism_score': ism_score,
-                        'original_index': orig_idx,
-                        'mapped_name': mapped_name
-                    })
-            except Exception as e:
-                print(f"  -> Model inference failed for {mapped_name}: {str(e)}")
-                continue
+                    final_scores = pose_scores * detection_scores #pose_scores * detection_scores
+                    pred_rot = out['pred_R'].detach().cpu().numpy()
+                    pred_trans = out['pred_t'].detach().cpu().numpy()
+
+                    for j, (orig_idx, class_name, _, ism_score) in enumerate(batch_info):
+                        results_by_batch.append({
+                            'class_name': class_name,
+                            'rotation': pred_rot[j],
+                            'translation': pred_trans[j],
+                            'pose_score': final_scores[j],
+                            'ism_score': ism_score,
+                            'original_index': orig_idx,
+                            'mapped_name': mapped_name
+                        })
+                except Exception as e:
+                    print(f"  -> Model inference failed for batch in {mapped_name}: {str(e)}")
+                    torch.cuda.empty_cache() # Free up memory on failure
+                    continue
 
         print("=> processing results...")
 
@@ -592,16 +603,15 @@ class SAM6DPEM_ROS:
             print(f"  {class_name}: Position [{translation[0]:.6f}, {translation[1]:.6f}, {translation[2]:.6f}], "
               f"Pose Score: {pose_score:.6f}, ISM Score: {ism_score:.6f}")
 
-        # Only keep the best pose per object (highest pose_score)
+        # Only keep the best pose per object class (highest pose_score for each class)
         best_results = {}
         for result in results_by_batch:
-            key = result['class_name']
-            if key not in best_results or result['pose_score'] > best_results[key]['pose_score']:
-                best_results[key] = result
+            class_name = result['class_name']
+            if class_name not in best_results or result['pose_score'] > best_results[class_name]['pose_score']:
+                best_results[class_name] = result
 
-        # Sort results by original index to maintain order if needed
-        sorted_best_results = sorted(best_results.values(), key=lambda x: x['original_index'])
-        #sorted_best_results = best_results
+        # Convert to list and sort by class name for consistent ordering
+        sorted_best_results = sorted(best_results.values(), key=lambda x: x['class_name'])
 
         for result in sorted_best_results:
             try:
@@ -643,13 +653,16 @@ class SAM6DPEM_ROS:
         print(f'Total execution time: {elapsed_time:.2f} seconds')
         print(f'Successfully estimated poses for {len(pose_results)} object instances')
 
+        torch.cuda.empty_cache()
+
+
         self.server.set_succeeded(response)
 
 
 def parse_opt():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_file', 
-                       default="/code/configs/cfg_ros_ycbv_inference.json",
+                       default="/code/configs/cfg_ros_manibot_inference.json",
                        help='Path to configuration file')
     parser.add_argument('--ism_results_dir',
                        default="/code/tmp",

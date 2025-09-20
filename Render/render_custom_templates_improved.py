@@ -1,9 +1,11 @@
 import blenderproc as bproc
+
 import os
 import argparse
 import cv2
 import numpy as np
 import trimesh
+import tempfile
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cad_path', help="The path of CAD model")
@@ -17,59 +19,44 @@ args = parser.parse_args()
 render_dir = os.path.dirname(os.path.abspath(__file__))
 cnos_cam_fpath = os.path.join(render_dir, '../Instance_Segmentation_Model/utils/poses/predefined_poses/cam_poses_level0.npy')
 
-def convert_ply_to_obj(ply_path):
-    """Convert PLY file to OBJ format for better compatibility"""
-    try:
-        # Load the PLY file
-        mesh = trimesh.load(ply_path, force='mesh')
-        
-        # Clean the mesh
-        mesh.remove_degenerate_faces()
-        mesh.remove_duplicate_faces() 
-        mesh.remove_unreferenced_vertices()
-        
-        # Apply rotation correction during conversion (90 degrees right around Z-axis)
+bproc.init()
 
-        rotation_matrix = trimesh.transformations.rotation_matrix(-np.pi/2, [1, 0, 0])
-
-
-        mesh.apply_transform(rotation_matrix)
-        print("Applied 90° clockwise rotation around Z-axis during PLY->OBJ conversion")
-        
-        # Ensure triangulation
-        if hasattr(mesh, 'faces') and len(mesh.faces) > 0:
-            # Check if we need triangulation
-            if mesh.faces.shape[1] > 3:
-                mesh = mesh.triangulate()
-        
-        # Create output path
-        obj_path = ply_path.replace('.ply', '_converted.obj')
-        
-        # Export as OBJ
-        mesh.export(obj_path)
-        
-        print(f"Successfully converted PLY to OBJ: {obj_path}")
-        return obj_path
-        
-    except Exception as e:
-        print(f"Error converting PLY file: {e}")
-        return ply_path
+def clean_and_convert_mesh(mesh_path):
+    """Clean the mesh and convert to OBJ format for BlenderProc compatibility"""
+    # Load mesh with trimesh and clean it
+    mesh = trimesh.load(mesh_path, force='mesh')
+    
+    # Remove degenerate faces and fix mesh
+    mesh.remove_degenerate_faces()
+    mesh.remove_duplicate_faces()
+    mesh.remove_unreferenced_vertices()
+    
+    # Create temporary OBJ file
+    temp_dir = tempfile.mkdtemp()
+    temp_obj_path = os.path.join(temp_dir, 'cleaned_mesh.obj')
+    mesh.export(temp_obj_path)
+    
+    return temp_obj_path
 
 def get_norm_info(mesh_path):
     mesh = trimesh.load(mesh_path, force='mesh')
+
     model_points = trimesh.sample.sample_surface(mesh, 1024)[0]
     model_points = model_points.astype(np.float32)
+
     min_value = np.min(model_points, axis=0)
     max_value = np.max(model_points, axis=0)
+
     radius = max(np.linalg.norm(max_value), np.linalg.norm(min_value))
+
     return 1/(2*radius)
 
-bproc.init()
 
-# Convert PLY to OBJ if necessary
-if args.cad_path.endswith('.ply'):
-    print(f"PLY file detected, converting to OBJ format...")
-    args.cad_path = convert_ply_to_obj(args.cad_path)
+# Clean and convert the mesh
+cleaned_mesh_path = clean_and_convert_mesh(args.cad_path)
+
+# Extract object name from the CAD path (without extension)
+object_name = os.path.splitext(os.path.basename(args.cad_path))[0]
 
 # load cnos camera pose
 cam_poses = np.load(cnos_cam_fpath)
@@ -83,69 +70,56 @@ else:
 for idx, cam_pose in enumerate(cam_poses):
     
     bproc.clean_up()
+
+    # load object using the cleaned mesh
+    obj = bproc.loader.load_obj(cleaned_mesh_path)[0]
+    obj.set_scale([scale, scale, scale])
+    obj.set_cp("category_id", 1)
+
+    # assigning material colors to untextured objects
+    if args.colorize:
+        color = [args.base_color, args.base_color, args.base_color, 0.]
+        material = bproc.material.create('obj')
+        material.set_principled_shader_value('Base Color', color)
+        obj.set_material(0, material)
+
+    # convert cnos camera poses to blender camera poses
+    cam_pose[:3, 1:3] = -cam_pose[:3, 1:3]
+    cam_pose[:3, -1] = cam_pose[:3, -1] * 0.001 * 2
+    bproc.camera.add_camera_pose(cam_pose)
     
-    try:
-        # load object
-        obj = bproc.loader.load_obj(args.cad_path)[0]
-        obj.set_scale([scale, scale, scale])
-        obj.set_cp("category_id", 1)
-        
-        # assigning material colors to untextured objects
-        if args.colorize:
-            color = [args.base_color, args.base_color, args.base_color, 0.]
-            material = bproc.material.create('obj')
-            material.set_principled_shader_value('Base Color', color)
-            obj.set_material(0, material)
-            
-        # convert cnos camera poses to blender camera poses
-        cam_pose[:3, 1:3] = -cam_pose[:3, 1:3]
-        cam_pose[:3, -1] = cam_pose[:3, -1] * 0.001 * 2
-        bproc.camera.add_camera_pose(cam_pose)
-        
-        # set light
-        light_scale = 2.5
-        light_energy = 1000
-        light1 = bproc.types.Light()
-        light1.set_type("POINT")
-        light1.set_location([light_scale*cam_pose[:3, -1][0], light_scale*cam_pose[:3, -1][1], light_scale*cam_pose[:3, -1][2]])
-        light1.set_energy(light_energy)
-        bproc.renderer.set_max_amount_of_samples(50)
-        
-        # render the whole pipeline
-        data = bproc.renderer.render()
-        # render nocs
-        data.update(bproc.renderer.render_nocs())
-        
-        # check save folder
-        save_fpath = os.path.join(args.output_dir, "templates")
-        if not os.path.exists(save_fpath):
-            os.makedirs(save_fpath)
-            
-        # save rgb image
-        color_bgr_0 = data["colors"][0]
-        color_bgr_0[..., :3] = color_bgr_0[..., :3][..., ::-1]
-        cv2.imwrite(os.path.join(save_fpath,'rgb_'+str(idx)+'.png'), color_bgr_0)
-        
-        # save mask
-        mask_0 = data["nocs"][0][..., -1]
-        cv2.imwrite(os.path.join(save_fpath,'mask_'+str(idx)+'.png'), mask_0*255)
-        
-        # save nocs
-        xyz_0 = 2*(data["nocs"][0][..., :3] - 0.5)
-        np.save(os.path.join(save_fpath,'xyz_'+str(idx)+'.npy'), xyz_0.astype(np.float16))
-        
-        print(f"Rendered template {idx+1}/{len(cam_poses)}")
-        
-    except Exception as e:
-        print(f"Error processing camera pose {idx}: {e}")
-        continue
+    # set light
+    light_energy = 1000
+    light_scale = 2.5
+    light1 = bproc.types.Light()
+    light1.set_type("POINT")
+    light1.set_location([light_scale*cam_pose[:3, -1][0], light_scale*cam_pose[:3, -1][1], light_scale*cam_pose[:3, -1][2]])
+    light1.set_energy(light_energy)
 
-print("Template rendering completed!")
+    bproc.renderer.set_max_amount_of_samples(1)
+    # render the whole pipeline
+    data = bproc.renderer.render()
+    # render nocs
+    data.update(bproc.renderer.render_nocs())
+    
+    # check save folder - include object name in path
+    save_fpath = os.path.join(args.output_dir, "templates", object_name)
+    if not os.path.exists(save_fpath):
+        os.makedirs(save_fpath)
 
-# Clean up converted file if it was created
-if args.cad_path.endswith('_converted.obj'):
-    try:
-        os.remove(args.cad_path)
-        print("Cleaned up temporary OBJ file")
-    except:
-        pass
+    # save rgb image
+    color_bgr_0 = data["colors"][0]
+    color_bgr_0[..., :3] = color_bgr_0[..., :3][..., ::-1]
+    cv2.imwrite(os.path.join(save_fpath,'rgb_'+str(idx)+'.png'), color_bgr_0)
+
+    # save mask
+    mask_0 = data["nocs"][0][..., -1]
+    cv2.imwrite(os.path.join(save_fpath,'mask_'+str(idx)+'.png'), mask_0*255)
+    
+    # save nocs
+    xyz_0 = 2*(data["nocs"][0][..., :3] - 0.5)
+    np.save(os.path.join(save_fpath,'xyz_'+str(idx)+'.npy'), xyz_0.astype(np.float16))
+
+# Clean up temporary file
+import shutil
+shutil.rmtree(os.path.dirname(cleaned_mesh_path))

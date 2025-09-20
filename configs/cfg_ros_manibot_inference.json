@@ -1,7 +1,8 @@
 {
-  "segmentor_model": "fastsam",
+  "segmentor_model": "sam",
   "object_mapping": {
-    "001_ahorn_sirup": "obj_000001"
+    "001_ahorn_sirup": "obj_000001",
+    "002_max_house": "obj_000002"
   },
   "cam_K": [
     538.391033533567, 0.0, 315.3074696331638,
@@ -9,7 +10,8 @@
     0.0, 0.0, 1.0
   ],
   "mesh_files": {
-    "001_ahorn_sirup": "/code/datasets/manibot/models/obj_000001.ply"
+    "001_ahorn_sirup": "/code/datasets/manibot/models/obj_000001.ply",
+    "002_max_house": "/code/datasets/manibot/models/obj_000002.ply"
   },
   "depth_scale": 1000.0,
   "stability_score_thresh": 0.97,

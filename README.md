@@ -79,7 +79,7 @@ export PATH=$PATH:~/.local/bin
 cd ../Render/
 blenderproc run render_custom_templates.py --cad_path $CAD_PATH --output_dir $OUTPUT_DIR
 # for now only work with .stl files! files will be placed under templates, repackage them under obj_00000N folder name, solution is in progress
-blenderproc run render_custom_templates_improved.py --cad_path /home/st3fan/Projects/DOPE/datasets/templates/manibot/models/models/obj_000001.ply --output_dir /home/st3fan/Projects/DOPE/datasets/manibot
+blenderproc run render_custom_templates_improved.py --cad_path /home/st3fan/Projects/DOPE/datasets/templates/manibot/models/models/obj_000002.ply --output_dir /home/st3fan/Projects/DOPE/datasets/manibot
 
 
 ```

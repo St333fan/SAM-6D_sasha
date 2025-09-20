@@ -54,7 +54,7 @@ class SAM6DISM_ROS:
         self.segmentor_model = config.get("segmentor_model", "fastsam")
         self.stability_score_thresh = config.get("stability_score_thresh", 0.97)
         self.depth_scale = config.get("depth_scale", 1000.0)
-        self.confidence_threshold = config.get("confidence_threshold", 0.5  # Add confidence threshold
+        self.confidence_threshold = config.get("confidence_threshold", 0.4)  # Add confidence threshold
         self.templates_base_dir = config["templates_dir"] # Setup templates directory base path
 
         print(f"Using intrinsics: {self.intrinsics}")
@@ -440,7 +440,6 @@ class SAM6DISM_ROS:
             instance_counter = 0
             instance_map = {}
 
-
             # Assign a unique label for each instance across all objects (allow overlapping, all detections above threshold)
             instance_masks = []
             for obj_name, detections in best_detections.items():
@@ -514,6 +513,8 @@ class SAM6DISM_ROS:
         end_time = time.time()
         elapsed_time = end_time - start_time
         print(f'Total execution time: {elapsed_time:.2f} seconds')
+
+        torch.cuda.empty_cache()
 
         self.server.set_succeeded(result)
 
@@ -653,7 +654,7 @@ class SAM6DISM_ROS:
 def parse_opt():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_file', 
-                       default="/code/configs/cfg_ros_ycbv_inference.json",
+                       default="/code/configs/cfg_ros_manibot_inference.json",
                        help='Path to configuration file')
     parser.add_argument('--output_dir',
                        default="/code/tmp",
