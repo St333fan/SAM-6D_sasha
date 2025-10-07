@@ -79,3 +79,7 @@ torch_cache/
 Instance_Segmentation_Model/checkpoints/
 Instance_Segmentation_Model/data/
 Instance_Segmentation_Model/log/
+
+Data/BOP
+Data/BOP-Templates
+log/
