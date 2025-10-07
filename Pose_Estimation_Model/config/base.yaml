@@ -91,8 +91,8 @@ test_dataset:
   n_template_view: 42
 
 test_dataloader:
-  bs            : 16
-  num_workers   : 16
+  bs            : 8
+  num_workers   : 8
   shuffle       : False
   drop_last     : False
   pin_memory    : False
