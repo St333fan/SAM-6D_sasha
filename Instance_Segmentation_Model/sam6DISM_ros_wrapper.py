@@ -51,7 +51,7 @@ class SAM6DISM_ROS:
         self.object_name_mapping = config["object_mapping"]
         self.intrinsics = np.asarray(config['cam_K']).reshape((3, 3))
         self.output_dir = output_dir
-        self.segmentor_model = config.get("segmentor_model", "fastsam")
+        self.segmentor_model = config.get("model", "sam") # fastsam or sam
         self.stability_score_thresh = config.get("stability_score_thresh", 0.97)
         self.depth_scale = config.get("depth_scale", 1000.0)
         self.confidence_threshold = config.get("confidence_threshold", 0.4)  # Add confidence threshold
@@ -60,6 +60,7 @@ class SAM6DISM_ROS:
         print(f"Using intrinsics: {self.intrinsics}")
         print(f"Output directory: {self.output_dir}")
         print(f"Segmentor model: {self.segmentor_model}")
+        print(f"Confidence: {self.confidence_threshold}")
 
         # Create output directory
         os.makedirs(self.output_dir, exist_ok=True)
