@@ -51,12 +51,12 @@ class SAM6DISM_ROS:
         self.object_name_mapping = config["object_mapping"]
         self.intrinsics = np.asarray(config['cam_K']).reshape((3, 3))
         self.output_dir = output_dir
-        self.segmentor_model = config.get("model", "sam") # fastsam or sam
+        self.segmentor_model = config.get("model", "fastsam") # fastsam or sam
         self.stability_score_thresh = config.get("stability_score_thresh", 0.97)
         self.depth_scale = config.get("depth_scale", 1000.0)
-        self.confidence_threshold = config.get("confidence_threshold", 0.4)  # Add confidence threshold
+        self.confidence_threshold = config.get("confidence_threshold")  # confidence threshold
         self.templates_base_dir = config["templates_dir"] # Setup templates directory base path
-
+        print(self.confidence_threshold)
         print(f"Using intrinsics: {self.intrinsics}")
         print(f"Output directory: {self.output_dir}")
         print(f"Segmentor model: {self.segmentor_model}")
@@ -334,6 +334,7 @@ class SAM6DISM_ROS:
                     visible_thred=self.model.visible_thred)
 
                 # Final score with geometric component
+                
                 final_score = (semantic_score + appe_scores + geometric_score*visible_ratio) / (1 + 1 + visible_ratio)
             except Exception as e:
                 logging.warning(f"Geometric scoring failed: {e}, using semantic + appearance only")

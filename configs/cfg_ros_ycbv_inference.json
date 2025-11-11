@@ -24,6 +24,7 @@
     "061_foam_brick": "obj_000021"
   },
   "object_mapping": {
+    "002_master_chef_can": "obj_000001",
     "003_cracker_box": "obj_000002",
     "006_mustard_bottle": "obj_000005"
   },

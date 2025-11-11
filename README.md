@@ -81,12 +81,20 @@ blenderproc run render_custom_templates.py --cad_path $CAD_PATH --output_dir $OU
 # for now only work with .stl files! files will be placed under templates, repackage them under obj_00000N folder name, solution is in progress
 blenderproc run render_custom_templates_improved.py --cad_path /home/st3fan/Projects/DOPE/datasets/templates/manibot/models/models/obj_000002.ply --output_dir /home/st3fan/Projects/DOPE/datasets/manibot
 
-# Render whole model set
+# Render whole model set with obj implementation
 for i in {1..21}; do
   printf -v padded "%06d" $i
   echo "Processing obj_$padded..."
   blenderproc run render_custom_templates_improved.py --cad_path /home/st3fan/Downloads/bop_models/ycbv_2dgs/models/obj_$padded.ply --output_dir /home/st3fan/Downloads/bop_models/ycbv_2dgs
 done
+
+# or test script
+for i in {1..8}; do   
+  printf -v padded "%06d" $i;   
+  echo "Processing obj_$padded...";   
+  blenderproc run render_custom_templates_binary.py --cad_path /home/st3fan/Projects/DOPE/datasets/ycbv_real_subset_2dgs/models/obj_$padded.ply --output_dir /home/st3fan/Projects/DOPE/datasets/ycbv_real_subset_2dgs; 
+done
+
 ```
 
 # Original README -> <p align="center"> <font color=#008000>SAM-6D</font>: Segment Anything Model Meets Zero-Shot 6D Object Pose Estimation </p>

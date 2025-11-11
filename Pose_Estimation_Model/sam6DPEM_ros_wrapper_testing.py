@@ -56,7 +56,7 @@ class SAM6DPEM_ROS:
         print(f"ISM results directory: {self.ism_results_dir}")
 
         # Configuration parameters for SAM-6D PEM
-        self.det_score_thresh = 0.2
+        self.det_score_thresh = 0.4
         self.gpus = "0"
         self.model_name = "pose_estimation_model"
         self.config_path = os.path.join(code_dir, "config", "base.yaml")
@@ -126,7 +126,7 @@ class SAM6DPEM_ROS:
             self.pose_publishers[obj_name] = rospy.Publisher(topic_name, PoseStamped, queue_size=10)
             rospy.loginfo(f"Created pose publisher for {obj_name} on {topic_name}")
         
-        self.server = actionlib.SimpleActionServer('/pose_estimator/sam6dpem',
+        self.server = actionlib.SimpleActionServer('/pose_estimator/foundationpose',
                                                    GenericImgProcAnnotatorAction,
                                                    execute_cb=self.estimate_pose,
                                                    auto_start=False)

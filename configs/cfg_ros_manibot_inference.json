@@ -15,7 +15,7 @@
   },
   "depth_scale": 1000.0,
   "stability_score_thresh": 0.97,
-  "confidence_threshold": 0.4,
+  "confidence_threshold": 0.3,
   "models_dir": "/code/datasets/manibot/models",
   "templates_dir": "/code/datasets/manibot/templates"
 }
