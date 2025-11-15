@@ -51,9 +51,9 @@ class SAM6DISM_ROS:
         self.object_name_mapping = config["object_mapping"]
         self.intrinsics = np.asarray(config['cam_K']).reshape((3, 3))
         self.output_dir = output_dir
-        self.segmentor_model = config.get("model", "fastsam") # fastsam or sam
+        self.segmentor_model = config.get("segmentor_model") # fastsam or sam
         self.stability_score_thresh = config.get("stability_score_thresh", 0.97)
-        self.depth_scale = config.get("depth_scale", 1000.0)
+        self.depth_scale = config.get("depth_scale", 1.0)
         self.confidence_threshold = config.get("confidence_threshold")  # confidence threshold
         self.templates_base_dir = config["templates_dir"] # Setup templates directory base path
         print(self.confidence_threshold)
@@ -342,7 +342,8 @@ class SAM6DISM_ROS:
         else:
             # Final score without geometric component
             final_score = (semantic_score + appe_scores) / 2
-            
+        
+        #final_score = (semantic_score + appe_scores) / 2
         detections.add_attribute("scores", final_score)
         detections.add_attribute("object_ids", torch.zeros_like(final_score))   
              

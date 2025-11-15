@@ -1,6 +1,6 @@
 {
   "segmentor_model": "sam",
-  "object_mappingg": {
+  "object_mapping": {
     "006_mustard_bottle": "obj_000001",
     "010_potted_meat_can": "obj_000002",
     "024_bowl": "obj_000003",
@@ -9,14 +9,6 @@
     "009_gelatin_box": "obj_000006",
     "040_large_marker": "obj_000007",
     "052_extra_large_clamp": "obj_000008"
-  },
-  "object_mapping": {
-    "006_mustard_bottle": "obj_000001",
-    "010_potted_meat_can": "obj_000002",
-    "003_cracker_box": "obj_000004",
-    "002_master_chef_can": "obj_000005",
-    "009_gelatin_box": "obj_000006",
-    "040_large_marker": "obj_000007"
   },
   "cam_K": [
     538.391033533567, 0.0, 315.3074696331638,
@@ -33,7 +25,7 @@
     "040_large_marker": "/code/datasets/ycbv_real_subset/models/obj_000007.ply",
     "052_extra_large_clamp": "/code/datasets/ycbv_real_subset/models/obj_000008.ply"
   },
-  "depth_scale": 1000.0,
+  "depth_scale": 1.0,
   "stability_score_thresh": 0.97,
   "confidence_threshold": 0.2,
   "models_dir": "/code/datasets/ycbv_real_subset/models",

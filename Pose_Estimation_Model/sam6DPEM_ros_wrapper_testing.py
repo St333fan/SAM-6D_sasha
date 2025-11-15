@@ -48,15 +48,15 @@ class SAM6DPEM_ROS:
         self.object_name_mapping = config["object_mapping"]
         self.intrinsics = np.asarray(config['cam_K']).reshape((3, 3))
         self.ism_results_dir = ism_results_dir
-        self.depth_scale = config.get("depth_scale", 1000.0)
+        self.depth_scale = config.get("depth_scale", 1.0) * 1000.0
         self.templates_base_dir = config["templates_dir"] # Setup templates directory base path
-        self.pem_batch_size = config.get("pem_batch_size", 8) # Batch size for PEM
+        self.pem_batch_size = config.get("pem_batch_size", 4) # Batch size for PEM based on VRAM
         
         print(f"Using intrinsics: {self.intrinsics}")
         print(f"ISM results directory: {self.ism_results_dir}")
 
         # Configuration parameters for SAM-6D PEM
-        self.det_score_thresh = 0.4
+        self.det_score_thresh = 0.3
         self.gpus = "0"
         self.model_name = "pose_estimation_model"
         self.config_path = os.path.join(code_dir, "config", "base.yaml")
@@ -625,6 +625,8 @@ class SAM6DPEM_ROS:
             try:
                 class_name = result['class_name']
                 rotation_matrix = result['rotation']
+                # Rotate -180 degrees around X, Y, and Z axes
+
                 translation = result['translation']
                 pose_score = result['pose_score']
                 ism_score = result['ism_score']

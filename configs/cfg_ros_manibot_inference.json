@@ -13,7 +13,7 @@
     "001_ahorn_sirup": "/code/datasets/manibot/models/obj_000001.ply",
     "002_max_house": "/code/datasets/manibot/models/obj_000002.ply"
   },
-  "depth_scale": 1000.0,
+  "depth_scale": 1.0,
   "stability_score_thresh": 0.97,
   "confidence_threshold": 0.3,
   "models_dir": "/code/datasets/manibot/models",

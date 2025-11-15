@@ -1,0 +1,35 @@
+{
+  "segmentor_model": "sam",
+  "object_mapping": {
+    "101_soap": "obj_000001",
+    "102_ahorn_sirup": "obj_000002",
+    "103_tomato_paste": "obj_000003",
+    "104_kokos_can": "obj_000004",
+    "105_hand_cream": "obj_000005",
+    "106_wet_wipes": "obj_000006",
+    "107_razors": "obj_000007",
+    "108_balsamic": "obj_000008",
+    "109_toothbrush": "obj_000009"
+  },
+  "cam_K": [
+    538.391033533567, 0.0, 315.3074696331638,
+    0.0, 538.085452058436, 233.0483557773859,
+    0.0, 0.0, 1.0
+  ],
+  "mesh_files": {
+    "101_soap": "/code/datasets/manibot_2dgs/models/obj_000001.ply",
+    "102_ahorn_sirup": "/code/datasets/manibot_2dgs/models/obj_000002.ply",
+    "103_tomato_paste": "/code/datasets/manibot_2dgs/models/obj_000003.ply",
+    "104_kokos_can": "/code/datasets/manibot_2dgs/models/obj_000004.ply",
+    "105_hand_cream": "/code/datasets/manibot_2dgs/models/obj_000005.ply",
+    "106_wet_wipes": "/code/datasets/manibot_2dgs/models/obj_000006.ply",
+    "107_razors": "/code/datasets/manibot_2dgs/models/obj_000007.ply",
+    "108_balsamic": "/code/datasets/manibot_2dgs/models/obj_000008.ply",
+    "109_toothbrush": "/code/datasets/manibot_2dgs/models/obj_000009.ply"
+  },
+  "depth_scale": 1.0,
+  "stability_score_thresh": 0.97,
+  "confidence_threshold": 0.3,
+  "models_dir": "/code/datasets/manibot_2dgs/models",
+  "templates_dir": "/code/datasets/manibot_2dgs/templates"
+}
