@@ -29,7 +29,7 @@
   },
   "depth_scale": 1.0,
   "stability_score_thresh": 0.97,
-  "confidence_threshold": 0.3,
+  "confidence_threshold": 0.2,
   "models_dir": "/code/datasets/manibot_svraster/models",
   "templates_dir": "/code/datasets/manibot_svraster/templates"
 }

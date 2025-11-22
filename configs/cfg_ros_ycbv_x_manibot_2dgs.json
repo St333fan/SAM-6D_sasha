@@ -1,0 +1,34 @@
+{
+  "segmentor_model": "sam",
+  "object_mapping": {
+    "006_mustard_bottle": "obj_000001",
+    "010_potted_meat_can": "obj_000002",
+    "101_soap": "obj_000003",
+    "102_ahorn_sirup": "obj_000004",
+    "105_hand_cream": "obj_000005",
+    "009_gelatin_box": "obj_000006",
+    "107_razors": "obj_000007",
+    "109_toothbrush": "obj_000008"
+  },
+  "cam_K": [
+    538.391033533567, 0.0, 315.3074696331638,
+    0.0, 538.085452058436, 233.0483557773859,
+    0.0, 0.0, 1.0
+  ],
+  "mesh_files": {
+    "006_mustard_bottle": "/code/datasets/ycbv_x_manibot_2dgs/models/obj_000001.ply",
+    "010_potted_meat_can": "/code/datasets/ycbv_x_manibot_2dgs/models/obj_000002.ply",
+    "101_soap": "/code/datasets/ycbv_x_manibot_2dgs/models/obj_000003.ply",
+    "102_ahorn_sirup": "/code/datasets/ycbv_x_manibot_2dgs/models/obj_000004.ply",
+    "105_hand_cream": "/code/datasets/ycbv_x_manibot_2dgs/models/obj_000005.ply",
+    "009_gelatin_box": "/code/datasets/ycbv_x_manibot_2dgs/models/obj_000006.ply",
+    "107_razors": "/code/datasets/ycbv_x_manibot_2dgs/models/obj_000007.ply",
+    "109_toothbrush": "/code/datasets/ycbv_x_manibot_2dgs/models/obj_000008.ply"
+  },
+  "depth_scale": 1.0,
+  "stability_score_thresh": 0.97,
+  "confidence_threshold": 0.3,
+  "models_dir": "/code/datasets/ycbv_x_manibot_2dgs/models",
+  "templates_dir": "/code/datasets/ycbv_x_manibot_2dgs/templates",
+  "geo_score": true
+}

@@ -48,7 +48,7 @@ class SAM6DPEM_ROS:
         self.object_name_mapping = config["object_mapping"]
         self.intrinsics = np.asarray(config['cam_K']).reshape((3, 3))
         self.ism_results_dir = ism_results_dir
-        self.depth_scale = config.get("depth_scale", 1.0) * 1000.0
+        self.depth_scale = config.get("depth_scale") * 1000.0
         self.templates_base_dir = config["templates_dir"] # Setup templates directory base path
         self.pem_batch_size = config.get("pem_batch_size", 4) # Batch size for PEM based on VRAM
         
